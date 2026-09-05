@@ -35,7 +35,7 @@ This covers the complete skill and agent trees, not every asset, automation conf
 - `check_upstream.py` matched every mapped file against the pinned checkout.
 - Original Bun watcher/orchestrator test suite passed: **52 tests, 206 assertions**.
 - Watcher TypeScript check passed.
-- An independent agent read the package for a read-only explanation and a shell-only future CI monitor request. It found a decision-log path mismatch and missing monitor-mode mapping. Both were corrected.
+- An independent agent read the package for a read-only explanation and a shell-only future CI monitor request. It found a decision-log path mismatch and missing monitor-mode mapping. Both were corrected. A follow-up found that plan validation required an unresolved installation-path placeholder; that was fixed and the resolved-path case was added to the check.
 - Plan checker was exercised with the bundled template and with a missing live lane; the valid structure passed and the missing lane failed.
 
 These checks do not prove an actual deployment, production PR merge, future scheduler wake, cross-vendor model panel, or live bot webhook. Those depend on the consuming host and task. No such service was provisioned or claimed by this port.

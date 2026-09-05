@@ -82,6 +82,7 @@ def main():
 
         template = (target/'playbooks/multi-phase-plan.md').read_text().split('````markdown\n', 1)[1].split('````', 1)[0]
         plan = tmp/'plan.md'
+        template = template.replace('<installed-skill-path>', str(target))
         plan.write_text(template)
         check = str(target/'scripts/check-plan.mjs')
         result = run('node', check, str(plan))
