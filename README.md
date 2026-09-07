@@ -1,4 +1,28 @@
-# Poteto Mode for Codex
+# Poteto Mode and Codex Delegate for Codex
+
+This repository also ships `codex-delegate`, an XState-based autonomous workflow for evidence-gated Codex delegation.
+
+## Codex Delegate
+
+Install it without changing the existing `poteto-mode` default:
+
+```sh
+python3 install.py --skill codex-delegate
+```
+
+`codex-delegate` classifies investigation, simple fix, bug fix, feature, refactor, UI, performance, PR maintenance, and skill work. Terra handles classification and implementation by default. Sol handles investigation, design, acceptance, and mandatory final review. Astra is reserved for unresolved or repeated contract failures. Generic routes remain hypotheses until repeated holdout evaluation supports promotion; evaluation never skips Sol review.
+
+UI workflows require a post-implementation PNG/JPEG path and route. Performance workflows require numeric baseline/current metric evidence. The runtime records phase context, frozen contracts, hashes, verification output, and recovery state under the target workspace's ignored `.codex-delegate/` directory.
+
+Run its deterministic suite:
+
+```sh
+cd skills/codex-delegate/runtime
+npm ci --ignore-scripts --no-audit --no-fund
+npm test
+```
+
+See [`skills/codex-delegate/SKILL.md`](skills/codex-delegate/SKILL.md) for invocation and runtime boundaries.
 
 A self-contained Codex port of Lauren Tan's [pstack](https://github.com/cursor/plugins/tree/main/pstack), including **poteto-mode**, all **45 upstream skills**, **23 playbooks**, **21 principles**, both agent prompts, and the original PR watcher and orchestrator tools.
 

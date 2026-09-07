@@ -12,6 +12,7 @@ from install import install
 
 ROOT = Path(__file__).resolve().parent
 BUNDLE = ROOT/'skills/poteto-mode'
+DELEGATE = ROOT/'skills/codex-delegate'
 
 
 def run(*args, cwd=None):
@@ -80,6 +81,22 @@ def main():
         assert (repository/'file.txt').read_text() == 'uncommitted'
         assert not (repository/'.cursor').exists()
 
+        delegate = install(tmp/'delegate skills', 'codex-delegate')
+        assert (delegate/'SKILL.md').is_file()
+        assert (delegate/'agents'/'openai.yaml').is_file()
+        assert (delegate/'runtime'/'package-lock.json').is_file()
+        assert not list(delegate.rglob('node_modules'))
+        for source_file in DELEGATE.rglob('*'):
+            if source_file.is_file() and 'node_modules' not in source_file.parts:
+                relative = source_file.relative_to(DELEGATE)
+                assert (delegate/relative).read_bytes() == source_file.read_bytes()
+        try:
+            install(delegate.parent, 'codex-delegate')
+        except FileExistsError:
+            pass
+        else:
+            raise AssertionError('Existing codex-delegate skill must not be overwritten')
+
         template = (target/'playbooks/multi-phase-plan.md').read_text().split('````markdown\n', 1)[1].split('````', 1)[0]
         plan = tmp/'plan.md'
         template = template.replace('<installed-skill-path>', str(target))
@@ -90,7 +107,7 @@ def main():
         plan.write_text(re.sub(r'^- \[ \] Lane 10\..*\n', '', template, flags=re.M))
         result = run('node', check, str(plan))
         assert result.returncode == 1 and 'expected 1 to 10' in result.stderr
-    print('PASS: source coverage, reference links, isolated install, overwrite refusal, upstream drift, decision log, dirty worktree, plan positive/negative checks')
+    print('PASS: source coverage, both isolated skill installs, overwrite refusal, upstream drift, decision log, dirty worktree, plan positive/negative checks')
 
 
 if __name__ == '__main__':

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex Delegate"
+  short_description: "Route bounded work through evidence-gated autonomous delegation"
+  default_prompt: "Use $codex-delegate to classify this bounded workspace request, select its registered workflow, and finish only with required evidence or a recorded block."
+
+policy:
+  allow_implicit_invocation: true

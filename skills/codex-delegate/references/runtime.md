@@ -1,0 +1,46 @@
+# Runtime contract
+
+`runtime/orchestrator.mjs` is the public CLI. It creates a session under `<workspace>/.codex-delegate/sessions/`, invokes read-only classification, investigation, and design phases as needed, then hands code work to its internal nested runner.
+
+## Commands
+
+```bash
+node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \
+  --workspace ABS \
+  --request-file ABS \
+  [--scope-file ABS] \
+  [--runtime-visual-evidence FILE] \
+  [--runtime-visual-route ROUTE] \
+  [--codex-bin PATH]
+
+node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs status --run ABS
+node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs resume --run ABS [--retry]
+```
+
+`--workspace` and `--request-file` are required for `start`. UI runs require both visual flags. The evidence path is an expected output path. `status` and `resume` require `--run`; `--retry` is only for blocked run.
+
+## Routing and models
+
+The classifier chooses one workflow from `runtime/workflows.mjs`: `investigation`, `simple-fix`, `bug-fix`, `feature`, `refactor`, `ui-change`, `performance`, `pr-maintenance`, or `skill-change`. The registry defines phase order, evidence types, side-effect ceiling, and review policy.
+
+Model selection is per capability, not a fixed role chain. Defaults use medium reasoning: classification and implementation use Terra; investigation, design, acceptance, and review use Sol. Astra is used only when design or acceptance still has `unresolved-contradiction` or `repeated-contract-failure`. Hard signals can raise judgment capabilities to Sol, but do not automatically raise implementation above Terra. Deterministic tool operations use no model.
+
+Every default and generic task-class route is a hypothesis. A route is evaluated only when its evidence has matching skill version, passing result, at least two holdout cases, at least two repetitions, zero false completions, zero scope violations, and an evidence path. Evaluation may promote exact model selection, but cannot disable independent review.
+
+## Evidence gates
+
+Each phase must record every evidence type required by its workflow. Investigation can finish after findings and remains read-only. Code workflows pass through the nested runner, which creates an acceptance contract, captures a baseline, limits implementation paths, freezes contract and test hashes, verifies checks, and records integrity before fresh review. Investigation, design, and prior nested-run artifacts are hash-pinned context passed to every nested role; a changed artifact blocks resume.
+
+`ui-change` requires `runtime-visual` evidence. Supply expected output path and route. Runner snapshots start state, then requires post-implementation regular PNG/JPEG with valid magic bytes, dimensions, fresh mtime, and changed content. It writes nested `evidence/runtime-visual.json`, hash-checks before and after review, and outer delivery uses only that manifest.
+
+Performance acceptance contracts declare nonempty `performanceMeasurements`. Each linked check prints one `CODEX_DELEGATE_METRIC <id> <finite-number> <unit>` line at baseline and final verification. Runner writes `evidence/performance.json` and blocks missing, duplicate, mismatched, nonfinite, or insufficient metrics.
+
+Required external verification cannot be relabeled as local evidence. The nested acceptance contract blocks it rather than treating a simulated or local result as external proof. Local authorization never implies remote mutation: commit, push, merge, deploy, publish, messaging, and account changes need explicit user authority.
+
+## Block and recovery boundary
+
+Use `status` before retrying. `resume --retry` restarts classification for blocked orchestrator phases; if a nested run was blocked while running, it resumes that run. Do not delete locks, journals, or evidence to force progress.
+
+Nested-run recovery is an internal exceptional path. It first requires inspection that its owner and child process group are no longer live, validates workspace and frozen-contract integrity, records a reason, and only then permits retry. A reviewer-requested contract revision is non-retryable and needs a new run with earlier evidence.
+
+The final `delivery.json` names workflow and required evidence. Completion proves those recorded gates only; report unexecuted, manual, or external evidence separately.

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skillVersion": "1.0.0",
+  "reasoning": "medium",
+  "defaults": {
+    "classify": { "model": "gpt-5.6-terra", "reasoning": "medium", "status": "hypothesis" },
+    "investigate": { "model": "gpt-5.6-sol", "reasoning": "medium", "status": "hypothesis" },
+    "design": { "model": "gpt-5.6-sol", "reasoning": "medium", "status": "hypothesis" },
+    "acceptance": { "model": "gpt-5.6-sol", "reasoning": "medium", "status": "hypothesis" },
+    "implement": { "model": "gpt-5.6-terra", "reasoning": "medium", "status": "hypothesis" },
+    "review": { "model": "gpt-5.6-sol", "reasoning": "medium", "status": "hypothesis" }
+  },
+  "taskClasses": {
+    "simple-fix": {
+      "capability": "implement",
+      "model": "gpt-5.6-terra",
+      "reasoning": "medium",
+      "status": "hypothesis",
+      "independentReview": true
+    }
+  },
+  "evaluatedRoutes": []
+}
