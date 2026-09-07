@@ -13,6 +13,8 @@ Read [references/runtime.md](references/runtime.md) before invoking it. Read [re
 
 Create a request file. Optionally provide a scope contract with `allowedImplementationPaths`, `allowedTestPaths`, and `requiredRequirementIds`.
 
+For isolated code workers, prepare a reusable checkout as described in [worker-workspaces.md](references/worker-workspaces.md). Use the returned workspace with the orchestrator. Reuse the same worker ID for repairs; read-only investigation uses the existing checkout without installation.
+
 ```bash
 node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \
   --workspace /absolute/workspace \
