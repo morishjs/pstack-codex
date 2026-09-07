@@ -1,10 +1,10 @@
-# Poteto Mode and Codex Delegate for Codex
+# Codex Delegate for Codex
 
-This repository also ships `codex-delegate`, an XState-based autonomous workflow for evidence-gated Codex delegation.
+The primary skill is `codex-delegate`, an XState-based autonomous workflow for evidence-gated Codex delegation. It incorporates Poteto's investigation, design, verification, and context-discipline principles into its routed workflows.
 
 ## Codex Delegate
 
-Install it without changing the existing `poteto-mode` default:
+Install it:
 
 ```sh
 python3 install.py --skill codex-delegate
@@ -24,6 +24,8 @@ npm test
 
 See [`skills/codex-delegate/SKILL.md`](skills/codex-delegate/SKILL.md) for invocation and runtime boundaries.
 
+## Legacy Poteto Mode
+
 A self-contained Codex port of Lauren Tan's [pstack](https://github.com/cursor/plugins/tree/main/pstack), including **poteto-mode**, all **45 upstream skills**, **23 playbooks**, **21 principles**, both agent prompts, and the original PR watcher and orchestrator tools.
 
 Install one skill. Its workflow library ships inside the same directory, so `how`, `architect`, `swarm`, and other dependencies cannot go missing or collide with skills you already installed.
@@ -36,7 +38,7 @@ Requires Python 3.9+ for the installer. In a terminal:
 
 ```sh
 git clone https://github.com/morishjs/pstack-codex.git
-python3 pstack-codex/install.py
+python3 pstack-codex/install.py --skill poteto-mode
 ```
 
 The installer copies only `skills/poteto-mode` into `$CODEX_HOME/skills/poteto-mode` (or `~/.codex/skills/poteto-mode`). It refuses to replace an existing directory or symlink, and excludes development dependencies. No global configuration is changed.
@@ -44,7 +46,7 @@ The installer copies only `skills/poteto-mode` into `$CODEX_HOME/skills/poteto-m
 For project-only installation, run from your project directory:
 
 ```sh
-python3 /path/to/pstack-codex/install.py --dest .agents/skills
+python3 /path/to/pstack-codex/install.py --skill poteto-mode --dest .agents/skills
 ```
 
 You can also ask Codex's built-in skill installer:

@@ -6,10 +6,10 @@ from pathlib import Path
 import shutil
 
 
-SKILLS = ('poteto-mode', 'codex-delegate')
+SKILLS = ('codex-delegate', 'poteto-mode')
 
 
-def install(destination, skill='poteto-mode'):
+def install(destination, skill='codex-delegate'):
     if skill not in SKILLS:
         raise ValueError(f'Unknown skill: {skill}')
     source = Path(__file__).resolve().parent / 'skills' / skill
@@ -24,7 +24,7 @@ def install(destination, skill='poteto-mode'):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dest', type=Path, default=Path(os.environ.get('CODEX_HOME', str(Path.home()/'.codex')))/'skills', help='Skill parent directory; use .agents/skills for project scope')
-    parser.add_argument('--skill', choices=SKILLS, default='poteto-mode', help='Skill to install')
+    parser.add_argument('--skill', choices=SKILLS, default='codex-delegate', help='Skill to install')
     args = parser.parse_args()
     try:
         target = install(args.dest, args.skill)

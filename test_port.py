@@ -34,7 +34,7 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix='pstack port ') as temporary:
         tmp = Path(temporary).resolve()
-        target = install(tmp/'installed skills')
+        target = install(tmp/'installed skills', 'poteto-mode')
         assert (target/'runtime.md').is_file()
         assert not list(target.rglob('node_modules'))
         for entry in manifest['files']:
@@ -43,7 +43,7 @@ def main():
         sentinel = target/'local-notes.txt'
         sentinel.write_text('keep user edits')
         try:
-            install(target.parent)
+            install(target.parent, 'poteto-mode')
         except FileExistsError:
             pass
         else:
@@ -81,7 +81,7 @@ def main():
         assert (repository/'file.txt').read_text() == 'uncommitted'
         assert not (repository/'.cursor').exists()
 
-        delegate = install(tmp/'delegate skills', 'codex-delegate')
+        delegate = install(tmp/'delegate skills')
         assert (delegate/'SKILL.md').is_file()
         assert (delegate/'agents'/'openai.yaml').is_file()
         assert (delegate/'runtime'/'package-lock.json').is_file()
