@@ -6,7 +6,7 @@ import path from "node:path";
 import os from "node:os";
 import { execFileSync, spawn as nativeSpawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { start, transition } from "./orchestrator.mjs";
+import { cliValue, start, transition } from "./orchestrator.mjs";
 import { canonicalRouteKey } from "./model-policy.mjs";
 
 async function fixture(route) {
@@ -38,6 +38,12 @@ const simple = { workflow: "simple-fix", taskClass: "simple-fix", risk: "low", c
 test("orchestrator has declared XState transitions", () => {
   assert.equal(transition("classifying", "CLASSIFIED"), "investigating");
   assert.throws(() => transition("classifying", "COMPLETE"));
+});
+test("CLI omits absent optional values", () => {
+  const args = ["--workspace", "/tmp/project", "--request-file", "/tmp/request"];
+  assert.equal(cliValue(args, "--workspace"), "/tmp/project");
+  assert.equal(cliValue(args, "--runtime-visual-evidence"), undefined);
+  assert.equal(cliValue(args, "--runtime-visual-route"), undefined);
 });
 test("investigation route stops after read-only findings", async () => {
   const f = await fixture({ ...simple, workflow: "investigation", taskClass: "investigation", authorizedActions: ["read-only"], finishAfterInvestigation: true }), seen = [];

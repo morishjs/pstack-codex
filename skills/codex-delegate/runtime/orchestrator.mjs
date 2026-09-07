@@ -15,6 +15,7 @@ const stamp = () => new Date().toISOString();
 const ensure = (ok, message) => { if (!ok) throw new Error(message); };
 const readJson = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
 const hash = (value) => createHash("sha256").update(value).digest("hex");
+export function cliValue(args, key) { const index = args.indexOf(key); return index < 0 ? undefined : args[index + 1]; }
 
 export const orchestratorMachine = createMachine({
   id: "codex-delegate-orchestrator",
@@ -196,7 +197,7 @@ export async function start({ workspace, requestFile, scopeFile, runtimeVisualEv
 export async function status(run) { const state = load(run); if (state.nestedRun) state.nestedStatus = await runnerStatus(state.nestedRun); return state; }
 export async function resume({ run, retry = false, ...options }) { const state = load(run); if (state.phase === "complete") return state; if (state.phase === "blocked") { ensure(retry, "blocked run needs --retry"); if (state.blockedPhase === "running" && state.nestedRun) move(state, "RESUME"); else { state.phase = "classifying"; persist(state, "retry-classification"); } } return drive(state, { ...options, retry }); }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { const [command, ...args] = process.argv.slice(2); const value = (key) => args[args.indexOf(key) + 1]; let state;
+  try { const [command, ...args] = process.argv.slice(2); const value = (key) => cliValue(args, key); let state;
     if (command === "start") { ensure(value("--workspace") && value("--request-file"), "start needs --workspace and --request-file"); state = await start({ workspace: value("--workspace"), requestFile: value("--request-file"), scopeFile: value("--scope-file"), runtimeVisualEvidenceFile: value("--runtime-visual-evidence"), runtimeVisualRoute: value("--runtime-visual-route"), codexBin: value("--codex-bin"), onRunCreated: (run) => console.log(run) }); }
     else if (command === "status") state = await status(value("--run")); else if (command === "resume") state = await resume({ run: value("--run"), retry: args.includes("--retry") }); else throw new Error("usage: start --workspace ABS --request-file ABS [--scope-file ABS] [--runtime-visual-evidence FILE --runtime-visual-route ROUTE] [--codex-bin ABS] | status --run ABS | resume --run ABS [--retry]");
     console.log(JSON.stringify({ run: state.run, phase: state.phase, reason: state.reason })); if (state.phase === "blocked") process.exitCode = 1;
