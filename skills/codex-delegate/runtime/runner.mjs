@@ -895,26 +895,28 @@ async function advance(state, options) {
     );
     state.review = review;
     ensure(
+      ["pass", "changes_requested"].includes(review.status),
+      "invalid review status",
+    );
+    if (review.nextAction === "contract_revision") {
+      state.blockedPhase = "reviewing";
+      state.nonRetryable = true;
+      state.reason =
+        "Sol requires an acceptance contract revision; start a new run with the prior evidence.";
+      move(state, "REVISE_CONTRACT");
+      return;
+    }
+    ensure(
       review.status !== "blocked" &&
         !review.requirements.some((r) => r.status === "blocked"),
       "review has blocked requirements",
-    );
-    ensure(
-      ["pass", "changes_requested"].includes(review.status),
-      "invalid review status",
     );
     const passed =
       review.status === "pass" &&
       review.requirements.every((r) => r.status === "pass") &&
       !review.findings.length;
     if (passed) move(state, "PASS");
-    else if (review.nextAction === "contract_revision") {
-      state.blockedPhase = "reviewing";
-      state.nonRetryable = true;
-      state.reason =
-        "Sol requires an acceptance contract revision; start a new run with the prior evidence.";
-      move(state, "REVISE_CONTRACT");
-    } else if (review.nextAction === "repair") move(state, "REPAIR");
+    else if (review.nextAction === "repair") move(state, "REPAIR");
     else throw new Error("review did not provide a repair or contract revision action");
   }
 }

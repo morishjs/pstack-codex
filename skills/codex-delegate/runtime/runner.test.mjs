@@ -24,7 +24,7 @@ import {writeFileSync} from 'node:fs'; import {randomUUID} from 'node:crypto'; c
 if(m==='gpt-5.6-terra'&&mode==='frozen') writeFileSync('check.mjs','console.log("BASE PASS")// changed'); if(m==='gpt-5.6-sol'&&mode==='review-mutate') writeFileSync('app.mjs','export const app = 2;');
 if(m==='gpt-5.6-terra'&&mode==='partial-worker') {writeFileSync('app.mjs','export const app = 3;'); process.exit(1);}
 if(mode==='slow') await new Promise(resolve=>setTimeout(resolve,100));
-const c=m==='gpt-6-astra'?{status:'ready',reason:'fixture',requirements:[{id:'R1',description:'works',checkIds:${missingIds ? "[]" : "['C1']"}}],checks:[{id:'C1',argv:['node','check.mjs'],testFiles:['check.mjs'],baseline:'pass',baselineMarker:'${missingMarker ? "MISSING" : "BASE"}',passMarker:'PASS'}],implementationPaths:['app.mjs']} : m==='gpt-5.6-terra'?{status:'done',summary:'done'}:{status:mode==='review-repair'||mode==='review-contract'?'changes_requested':'pass',nextAction:mode==='review-contract'?'contract_revision':'repair',requirements:mode==='review-omit'?[]:[{id:'R1',status:'pass',evidence:'check'}],findings:mode==='review-repair'||mode==='review-contract'?['repair requested']:[]}; writeFileSync(out,JSON.stringify(c)); console.log(JSON.stringify({type:'turn.completed',thread_id:randomUUID()}));`,
+const c=m==='gpt-6-astra'?{status:'ready',reason:'fixture',requirements:[{id:'R1',description:'works',checkIds:${missingIds ? "[]" : "['C1']"}}],checks:[{id:'C1',argv:['node','check.mjs'],testFiles:['check.mjs'],baseline:'pass',baselineMarker:'${missingMarker ? "MISSING" : "BASE"}',passMarker:'PASS'}],implementationPaths:['app.mjs']} : m==='gpt-5.6-terra'?{status:'done',summary:'done'}:{status:mode==='review-repair'||(mode??'').startsWith('review-contract')?'changes_requested':'pass',nextAction:(mode??'').startsWith('review-contract')?'contract_revision':'repair',requirements:mode==='review-omit'?[]:[{id:'R1',status:mode==='review-contract-blocked'?'blocked':'pass',evidence:'check'}],findings:mode==='review-repair'||(mode??'').startsWith('review-contract')?['repair requested']:[]}; writeFileSync(out,JSON.stringify(c)); console.log(JSON.stringify({type:'turn.completed',thread_id:randomUUID()}));`,
   );
   execFileSync("git", ["add", "."], { cwd: root });
   execFileSync(
@@ -291,6 +291,14 @@ test("review contract revision blocks instead of retrying Terra", async () => {
   assert.equal(s.blockedPhase, "reviewing");
   assert.match(s.reason, /new run/);
   assert.deepEqual(s.agents.map((agent) => agent.role), ["author", "worker", "reviewer"]);
+});
+
+test("blocked requirement still routes an explicit contract revision", async () => {
+  const f = await fixture();
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, spawn: fakeSpawn(f, "review-contract-blocked") });
+  assert.equal(s.phase, "blocked");
+  assert.equal(s.nonRetryable, true);
+  assert.match(s.reason, /acceptance contract revision/);
 });
 
 test("ignored configuration change invalidates completed evidence", async () => {
