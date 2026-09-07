@@ -6,7 +6,8 @@ import path from "node:path";
 import os from "node:os";
 import { execFileSync, spawn as nativeSpawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cliValue, start, resume, transition } from "./orchestrator.mjs";
+import { cliValue, start as startOrchestrator, resume, transition } from "./orchestrator.mjs";
+const start = options => startOrchestrator({ ...options, executionMode: 'isolated' });
 import { canonicalRouteKey } from "./model-policy.mjs";
 
 async function fixture(route) {
@@ -19,7 +20,7 @@ async function fixture(route) {
   await writeFile(bin, `#!/usr/bin/env node
 import {readFileSync,writeFileSync} from 'node:fs'; import {randomUUID} from 'node:crypto';
 const a=process.argv,out=a[a.indexOf('-o')+1],schema=JSON.parse(readFileSync(a[a.indexOf('--output-schema')+1])); const p=schema.properties, m=a[a.indexOf('-m')+1];
-console.log(JSON.stringify({type:'thread.started',thread_id:randomUUID()}));
+console.log(JSON.stringify({type:'thread.started',thread_id:a.includes('resume')?a.at(-2):randomUUID()}));
 let result;
 if(m==='gpt-5.6-terra'&&process.env.FAKE_VISUAL) writeFileSync(process.env.FAKE_VISUAL,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwI/2xwQ7QAAAABJRU5ErkJggg==','base64'));
 if(p.workflow) result=${JSON.stringify(route)};
@@ -185,4 +186,24 @@ test("PR maintenance remains local-workspace only", async () => {
   assert.equal(state.classification.authorizedActions.some((x) => /push|merge|commit/.test(x)), false);
   const prompts = state.agents.map((agent) => readFileSync(path.join(agent.dir, "prompt.txt"), "utf8")).join("\n");
   assert.match(prompts, /Do not write workspace files, commit, push, deploy/);
+});
+
+test('default lead mode reuses classification, investigation and author context; Sol review is fresh', async () => {
+  const f = await fixture({ ...simple, workflow: 'bug-fix', taskClass: 'bug-fix', complexity: 'high' });
+  const seen = [], result = await startOrchestrator({ workspace: f.root, requestFile: f.requestFile, spawn: spawnFor(f, seen) });
+  assert.equal(result.phase, 'complete', result.reason);
+  const nested = JSON.parse(readFileSync(path.join(result.nestedRun,'state.json'),'utf8'));
+  const id = result.agents[0].threadId;
+  assert.equal(result.executionMode, 'lead');
+  assert.equal(result.agents[1].threadId, id);
+  assert.equal(nested.agents.find(agent => agent.role === 'author').threadId, id);
+  assert.notEqual(nested.agents.find(agent => agent.role === 'reviewer').threadId, id);
+  assert.equal(nested.leadSession.model, 'gpt-5.6-sol');
+});
+test('hard policy signal raises lead to Sol while retaining its thread', async () => {
+  const f = await fixture({ ...simple, workflow: 'bug-fix', taskClass: 'bug-fix', signals: ['auth-security'] });
+  const result = await startOrchestrator({ workspace: f.root, requestFile: f.requestFile, spawn: spawnFor(f, []) });
+  assert.equal(result.phase, 'complete', result.reason);
+  assert.equal(result.leadSession.model, 'gpt-5.6-sol');
+  assert.equal(result.agents[0].threadId, result.agents[1].threadId);
 });

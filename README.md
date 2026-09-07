@@ -10,7 +10,7 @@ Install it:
 python3 install.py --skill codex-delegate
 ```
 
-`codex-delegate` classifies investigation, simple fix, bug fix, feature, refactor, UI, performance, PR maintenance, and skill work. Terra handles classification and implementation by default. Sol handles investigation, design, acceptance, and mandatory final review. Astra is reserved for unresolved or repeated contract failures. Generic routes remain hypotheses until repeated holdout evaluation supports promotion; evaluation never skips Sol review.
+`codex-delegate` classifies investigation, simple fix, bug fix, feature, refactor, UI, performance, PR maintenance, and skill work. A persistent lead thread handles investigation, acceptance, implementation, and repair. Low-risk/low-complexity work defaults to Terra; other work defaults to Sol. Final Sol review always uses a fresh session. Astra is reserved for policy escalation. Generic routes remain hypotheses until repeated holdout evaluation supports promotion; evaluation never skips Sol review.
 
 UI workflows require a post-implementation PNG/JPEG path and route. Performance workflows require numeric baseline/current metric evidence. The runtime records phase context, frozen contracts, hashes, verification output, and recovery state under the target workspace's ignored `.codex-delegate/` directory.
 

@@ -1,5 +1,7 @@
 # Model routing policy
 
+The public default uses one persistent lead thread, not one fresh session per capability. After Terra classification, low-risk/low-complexity tasks default to a Terra lead, others to Sol; a validated exact implementation route may override that choice. The lead retains its model between phases unless policy explicitly escalates to Astra. The capability defaults below apply to isolated execution and escalation decisions. Final Sol review remains separate in both modes.
+
 `runtime/model-policy.json` is a readable policy input. It selects one model for one capability, rather than a fixed author-implementer-review chain. Available routes use medium reasoning only.
 
 Initial defaults are hypotheses. Deterministic tool work needs no model. Classification and implementation use Terra; investigation, design, acceptance, and review use Sol. A bounded simple fix still needs a known failing deterministic check, explicit expected behavior, and a bounded implementation allowlist. Hard signals raise judgment capabilities (classify, investigate, design, acceptance, review) to at least Sol. They do not raise implementation above Terra: implementation consumes contract and scope already decided by judgment stages. Astra is escalation for design or acceptance when an unresolved contradiction or repeated contract failure remains.

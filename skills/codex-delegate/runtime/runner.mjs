@@ -11,6 +11,8 @@ export const MODELS = Object.freeze({
   reviewer: "gpt-5.6-sol",
 });
 function assignedModel(state, role) {
+  if (state.leadSession)
+    return role === "reviewer" ? MODELS.reviewer : state.leadSession.model;
   return state.models?.[role] ?? MODELS[role];
 }
 const VERSION = 1;
@@ -552,6 +554,8 @@ function phasePrompt(state, role, dir) {
   let scope = state.scope
     ? `Scope policy is fixed. Requirement IDs: ${state.scope.requirementIds.join(", ")}. Allowed implementation paths: ${state.scope.implementationPaths.join(", ")}. Allowed acceptance test paths: ${state.scope.testPaths.join(", ")}.`
     : "";
+  if (state.leadSession && role !== "reviewer")
+    scope += `\nLead phase boundary: this turn is ${role === "author" ? "author tests-only; do not edit production" : "worker production-only; do not edit frozen acceptance tests"}. Earlier turns do not grant ownership in this phase. Follow the current run contract and handoff; never broaden the fixed scope.`;
   if (state.contextArtifacts?.length)
     scope += `\nFixed context artifacts (verify before relying on them):\n${state.contextArtifacts.map((a) => `${a.label}: ${a.path} (SHA-256 ${a.hash})`).join("\n")}`;
   if (state.revisionOf && role === "author")
@@ -719,22 +723,27 @@ async function call(state, role, options) {
   });
   const prompt = phasePrompt(state, role, dir);
   fs.writeFileSync(path.join(dir, "prompt.txt"), prompt, { mode: 0o600 });
+  const lead = state.leadSession && role !== "reviewer";
+  // Resume only this explicit ID. Never fall back to --last or create a replacement on failure.
+  const expectedThreadId = lead ? state.leadSession.threadId : undefined;
+  if (lead && role === "worker") ensure(text(expectedThreadId), "worker requires an established lead session");
   const argv = [
     state.codexBin,
     "exec",
     "-C",
     state.workspace,
+    ...(state.leadSession ? ["-s", "workspace-write", ...(expectedThreadId ? ["resume"] : [])] : []),
     "-m",
     assignedModel(state, role),
     "-c",
     'model_reasoning_effort="medium"',
-    "-s",
-    "workspace-write",
+    ...(!state.leadSession ? ["-s", "workspace-write"] : []),
     "--json",
     "--output-schema",
     schemaFile,
     "-o",
     output,
+    ...(expectedThreadId ? [expectedThreadId] : []),
     "-",
   ];
   const receipt = await processRun(
@@ -763,12 +772,28 @@ async function call(state, role, options) {
       text(receipt.threadId),
     `${role} CLI failed or incomplete; inspect ${dir}`,
   );
-  ensure(
-    state.agents.filter((a) => a.threadId === receipt.threadId).length === 1,
-    "agent session reused across phases",
-  );
+  if (state.leadSession) {
+    if (expectedThreadId)
+      ensure(receipt.threadId === expectedThreadId, "resumed lead session ID mismatch");
+    ensure(
+      !(state.reviewerThreadIds ?? []).includes(receipt.threadId) &&
+        !state.agents.slice(0, -1).some((a) => a.threadId === receipt.threadId && (role === "reviewer" || a.role === "reviewer")) &&
+        (role !== "reviewer" || receipt.threadId !== state.leadSession.threadId),
+      "reviewer session must be fresh and isolated from lead",
+    );
+  } else {
+    ensure(
+      state.agents.filter((a) => a.threadId === receipt.threadId).length === 1,
+      "agent session reused across phases",
+    );
+  }
   ensure(fs.existsSync(output), `${role} produced no result`);
-  return read(output);
+  const result = read(output);
+  if (lead) {
+    state.leadSession.threadId = receipt.threadId;
+    persist(state, "lead-session-confirmed", { threadId: receipt.threadId });
+  }
+  return result;
 }
 async function checks(state, baseline, options) {
   const before = unchanged(state),
@@ -1107,13 +1132,25 @@ export async function start({ workspace, requestFile, scopeFile, ...options }) {
     for (const sub of ["", "attempts", "evidence"])
       fs.mkdirSync(path.join(run, sub), { recursive: true, mode: 0o700 });
     const scope = scopeFile ? validateScope(read(scopeFile), workspace) : undefined;
-    const models = { ...MODELS, ...(options.models ?? {}), reviewer: MODELS.reviewer };
+    let leadSession = options.leadSession === undefined ? undefined : { ...options.leadSession };
+    if (leadSession)
+      ensure(text(leadSession.model) && (leadSession.threadId === undefined || text(leadSession.threadId)), "invalid lead session configuration");
+    const models = { ...MODELS, ...(options.models ?? {}), ...(leadSession ? { author: leadSession.model, worker: leadSession.model } : {}), reviewer: MODELS.reviewer };
     ensure(Object.values(models).every(text), "invalid model assignments");
     const workflow = options.workflow ?? "simple-fix";
-    let revisionSnapshot;
+    let revisionSnapshot, reviewerThreadIds = [];
     if (options.revisionOf) {
       const prior = load(options.revisionOf);
       ensure(prior.workspace === workspace && !prior.inFlight, "revision requires the same workspace and no in-flight command");
+      if (prior.leadSession?.threadId) {
+        ensure(!leadSession?.threadId || leadSession.threadId === prior.leadSession.threadId, 'contract revision must retain the prior lead thread');
+        leadSession = { ...prior.leadSession, ...leadSession, threadId: prior.leadSession.threadId };
+        models.author = leadSession.model; models.worker = leadSession.model;
+      }
+      if (leadSession) {
+        reviewerThreadIds = [...new Set([...(prior.reviewerThreadIds ?? []), ...prior.agents.filter((a) => a.role === "reviewer").map((a) => a.threadId).filter(text)])];
+        ensure(!reviewerThreadIds.includes(leadSession.threadId), "lead session cannot reuse a reviewer session");
+      }
       const evidence = { priorRun: prior.run, capturedAt: stamp(), state: {
         id: prior.id, request: prior.request, phase: prior.phase, reason: prior.reason,
         contract: prior.contract, contractFileHash: prior.contractFileHash, frozenTests: prior.frozenTests,
@@ -1143,6 +1180,8 @@ export async function start({ workspace, requestFile, scopeFile, ...options }) {
       timeout: options.timeout ?? DEFAULT_TIMEOUT,
       codexBin: options.codexBin ?? "codex",
       models,
+      leadSession,
+      ...(leadSession ? { reviewerThreadIds } : {}),
       reviewRequired: true,
       workflow,
       visualEvidence: options.visualEvidence,
@@ -1166,6 +1205,7 @@ export async function start({ workspace, requestFile, scopeFile, ...options }) {
     state.config = {
       workspace,
       models,
+      leadSession: leadSession ? { ...leadSession } : undefined,
       reasoning: "medium",
       codexBin: state.codexBin,
       maxAttempts: state.maxAttempts,
@@ -1271,12 +1311,18 @@ if (
         value("--workspace") && value("--request-file"),
         "start needs --workspace and --request-file",
       );
+      const leadRequested = args.includes("--lead-model") || args.includes("--lead-thread");
+      if (leadRequested) {
+        ensure(text(value("--lead-model")) && !value("--lead-model").startsWith("--"), "lead session needs --lead-model MODEL");
+        ensure(!args.includes("--lead-thread") || (text(value("--lead-thread")) && !value("--lead-thread").startsWith("--")), "--lead-thread needs an explicit session ID; no --last fallback");
+      }
       state = await start({
         workspace: value("--workspace"),
         requestFile: value("--request-file"),
         scopeFile: value("--scope-file"),
         revisionOf: value("--revision-of"),
         codexBin: value("--codex-bin"),
+        leadSession: leadRequested ? { model: value("--lead-model"), threadId: value("--lead-thread") } : undefined,
         onRunCreated: (run) => console.log(run),
       });
     } else if (command === "recover")
@@ -1295,7 +1341,7 @@ if (
     else if (command === "status") state = await status(value("--run"));
     else
       throw new Error(
-        "usage: start --workspace ABS --request-file ABS [--scope-file ABS] [--codex-bin ABS] | resume --run ABS [--retry] | recover --run ABS --reason TEXT [--author-test REL] | status --run ABS",
+        "usage: start --workspace ABS --request-file ABS [--scope-file ABS] [--codex-bin ABS] [--lead-model MODEL [--lead-thread ID]] | resume --run ABS [--retry] | recover --run ABS --reason TEXT [--author-test REL] | status --run ABS. Lead resumes require the explicit ID; no --last fallback.",
       );
     console.log(
       JSON.stringify({

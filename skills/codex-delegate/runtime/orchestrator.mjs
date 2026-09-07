@@ -89,29 +89,39 @@ async function invoke(state, { phase, model, reasoning, sandbox, schema: outputS
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const schemaFile = path.join(dir, "schema.json"), output = path.join(dir, "result.json"), log = path.join(dir, "child.jsonl");
   atomic(schemaFile, outputSchema); fs.writeFileSync(path.join(dir, "prompt.txt"), prompt, { mode: 0o600 });
-  const argv = [state.codexBin, "exec", "-C", state.workspace, "-m", model, "-c", `model_reasoning_effort=\"${reasoning}\"`, "-s", sandbox, "--json", "--output-schema", schemaFile, "-o", output, "-"];
+  const resumedThread = state.leadSession?.threadId;
+  const argv = [state.codexBin, "exec", "-C", state.workspace, "-s", sandbox, ...(resumedThread ? ['resume'] : []), "-m", model, "-c", `model_reasoning_effort=\"${reasoning}\"`, "--json", "--output-schema", schemaFile, "-o", output, ...(resumedThread ? [resumedThread] : []), "-"];
   const receipt = await new Promise((resolve, reject) => {
     const child = (options.spawn ?? spawn)(argv[0], argv.slice(1), { cwd: state.workspace, stdio: ["pipe", "pipe", "pipe"], detached: true });
-    let threadId, complete = false, settled = false;
+    let threadId, complete = false, settled = false, pending = '';
     const finish = (value, error) => { if (settled) return; settled = true; clearTimeout(timer); error ? reject(error) : resolve(value); };
-    const consume = (data) => { const s = data.toString(); fs.appendFileSync(log, s); for (const line of s.split("\n")) try { const e = JSON.parse(line); if (e.type === "thread.started") threadId = e.thread_id; if (e.type === "turn.completed") complete = true; } catch {} };
+    const consume = (data) => { const s = data.toString(); fs.appendFileSync(log, s); pending += s; const lines = pending.split('\n'); pending = lines.pop(); for (const line of lines) try { const e = JSON.parse(line); if (e.type === "thread.started") threadId = e.thread_id; if (e.type === "turn.completed") complete = true; } catch {} };
     const timer = setTimeout(() => { try { process.kill(-child.pid, "SIGTERM"); } catch {} finish(null, new Error(`${phase} timed out`)); }, options.timeout ?? 20 * 60_000);
     child.stdout.on("data", consume); child.stderr.on("data", consume); child.on("error", (error) => finish(null, error)); child.on("close", (code) => finish({ code, threadId, complete })); child.stdin.end(prompt);
   });
   ensure(receipt.code === 0 && receipt.complete && text(receipt.threadId) && fs.existsSync(output), `${phase} CLI failed or incomplete`);
+  if (resumedThread) ensure(receipt.threadId === resumedThread, 'lead resume returned a different thread');
+  if (state.leadSession) state.leadSession.threadId = receipt.threadId;
   const result = readJson(output);
-  const record = { phase, model, reasoning, sandbox, threadId: receipt.threadId, dir, output: path.relative(state.run, output), at: stamp() };
+  const record = { phase, model, reasoning, sandbox, threadId: receipt.threadId, resumed: Boolean(resumedThread), dir, output: path.relative(state.run, output), at: stamp() };
   state.agents.push(record); atomic(path.join(state.run, "agents.json"), state.agents); persist(state, "phase-result", { record });
   return result;
 }
 function assignment(state, capability) {
   const decision = selectModel({ capability, taskClass: state.classification.taskClass, workflow: state.classification.workflow, risk: state.classification.risk, complexity: state.classification.complexity, signals: [...state.classification.signals, ...(state.escalationSignals ?? [])], policy: state.policy });
   ensure(decision.model, `${capability} needs a model`);
+  if (state.leadSession) {
+    if (decision.model === 'gpt-6-astra') state.leadSession.model = decision.model;
+    else if (decision.source === 'escalation' && decision.model === 'gpt-5.6-sol' && state.leadSession.model === 'gpt-5.6-terra') state.leadSession.model = decision.model;
+    decision.model = state.leadSession.model;
+    decision.source = 'persistent-lead';
+    decision.reasons.push('reuse-current-task-context');
+  }
   state.assignments[capability] = decision; return decision;
 }
 function contextArtifact(file, label) { return { path: file, label, hash: hash(fs.readFileSync(file)) }; }
 function promptFor(state, phase) {
-  const base = `You are the ${phase} phase for Codex Delegate. Workspace: ${state.workspace}. Original request:\n${state.request}\n\nDo not write workspace files, commit, push, deploy, message external systems, or spawn agents. Return only JSON matching the schema.`;
+  const base = `You are the ${phase} phase for Codex Delegate. Workspace: ${state.workspace}. Original request:\n${state.request}\n\nThis turn is a read-only phase. Reuse your existing task context and inspect only missing or changed evidence. Do not write workspace files, commit, push, deploy, message external systems, or spawn agents. Return only JSON matching the schema.`;
   if (phase === "classify") return `${base}\nChoose one registered workflow. Set taskClass to that exact registered workflow key; put any free-form diagnosis only in reason. Authorization is an action ceiling: only read-only/local-workspace are allowed; never infer push, merge, deploy, or external writes.`;
   return `${base}\nClassification: ${JSON.stringify(state.classification)}\n${state.investigation ? `Prior investigation: ${path.join(state.run, 'investigation.json')}. Reuse its findings and inspect only unresolved evidence.` : ''}\nProvide direct local evidence paths/commands and unknowns. Read only files relevant to the request and scope; avoid entire repository or home-directory dumps.`;
 }
@@ -131,6 +141,11 @@ async function drive(state, options) {
         const result = validateClassification(await invoke(state, { phase: "classify", model: route.model, reasoning: route.reasoning, sandbox: "read-only", schema: classificationSchema, prompt: promptFor(state, "classify") }, options));
         if (result.workflow === "ui-change") ensure(state.runtimeVisualEvidence?.path && text(state.runtimeVisualEvidence.route), "ui-change needs --runtime-visual-evidence and --runtime-visual-route");
         state.classification = result; state.assignments.classify = route; atomic(path.join(state.run, "classification.json"), result); recordEvidence(state, "classify", result); persist(state, "classified", { route });
+        if (state.leadSession) {
+          const evaluated = selectModel({ capability: 'implement', taskClass: result.taskClass, workflow: result.workflow, risk: result.risk, complexity: result.complexity, signals: result.signals, policy: state.policy });
+          state.leadSession.model = evaluated.source === 'evaluated' ? evaluated.model : result.risk === 'low' && result.complexity === 'low' ? 'gpt-5.6-terra' : 'gpt-5.6-sol';
+          persist(state, 'lead-selected', { model: state.leadSession.model, threadId: state.leadSession.threadId, source: evaluated.source === 'evaluated' ? 'evaluated-route' : 'difficulty-default' });
+        }
         const phases = WORKFLOW_REGISTRY[result.workflow].phases;
         if (phases.includes("investigate")) move(state, "CLASSIFIED"); else if (phases.includes("design")) move(state, "SKIP_INVESTIGATION"); else move(state, "RUN");
       } else if (state.phase === "investigating") {
@@ -152,11 +167,13 @@ async function drive(state, options) {
           ...(state.design ? [contextArtifact(path.join(state.run, "design.json"), "design")] : []),
         ];
         const runnerOptions = { ...options, models, workflow: state.classification.workflow, reviewRequired, contextArtifacts,
+          ...(state.leadSession ? { leadSession: structuredClone(state.leadSession) } : {}),
           revisionOf: state.priorNestedRun,
           onRunCreated: (run) => { state.nestedRun = run; persist(state, 'nested-started', { run }); },
           ...(state.classification.workflow === "ui-change" ? { visualEvidence: state.runtimeVisualEvidence } : {}) };
         const nested = state.nestedRun ? await resumeRunner({ run: state.nestedRun, retry: options.retry === true, ...runnerOptions }) : await startRunner({ workspace: state.workspace, requestFile: path.join(state.run, "request.txt"), scopeFile: state.scopeFile, codexBin: state.codexBin, ...runnerOptions });
         state.nestedRun = nested.run; state.nestedPhase = nested.phase; persist(state, "nested-run", { run: nested.run, phase: nested.phase, models });
+        if (nested.leadSession) { state.leadSession = structuredClone(nested.leadSession); persist(state, 'lead-returned'); }
         if (nested.phase !== "complete" && nested.nonRetryable && /acceptance contract revision/.test(nested.reason ?? "")) {
           state.contractRevisions ??= 0;
           ensure(state.contractRevisions < 2, "contract revision budget exhausted; start a new outer run with prior evidence");
@@ -196,8 +213,10 @@ export async function start({ workspace, requestFile, scopeFile, planFile, runti
   const run = path.join(workspace, ".codex-delegate", "sessions", randomUUID()); fs.mkdirSync(path.join(run, "phases"), { recursive: true, mode: 0o700 });
   const visual = runtimeVisualEvidenceFile ? path.resolve(runtimeVisualEvidenceFile) : undefined;
   const selectedPolicy = policy ?? loadPolicy(); ensure(validateModelPolicy(selectedPolicy).valid, "invalid model policy");
-  const state = { version: VERSION, id: path.basename(run), run, workspace, request: fs.readFileSync(requestFile, "utf8"), requestHash: hash(fs.readFileSync(requestFile, "utf8")), scopeFile, codexBin: options.codexBin ?? "codex", policy: selectedPolicy, phase: "classifying", sequence: 0, agents: [], assignments: {}, evidence: {}, runtimeVisualEvidence: visual ? { path: visual, route: runtimeVisualRoute, start: visualStart(visual) } : undefined, createdAt: stamp() };
-  fs.writeFileSync(path.join(run, "request.txt"), state.request, { mode: 0o600 }); const config = { workspace, scopeFile, codexBin: state.codexBin }; atomic(path.join(run, "config.json"), config); state.configHash = hash(JSON.stringify(config, null, 2)); persist(state, "start"); options.onRunCreated?.(run); return drive(state, options);
+  const executionMode = options.executionMode ?? 'lead';
+  ensure(['lead', 'isolated'].includes(executionMode), 'executionMode must be lead or isolated');
+  const state = { version: VERSION, id: path.basename(run), run, workspace, request: fs.readFileSync(requestFile, "utf8"), requestHash: hash(fs.readFileSync(requestFile, "utf8")), scopeFile, codexBin: options.codexBin ?? "codex", policy: selectedPolicy, executionMode, ...(executionMode === 'lead' ? { leadSession: { model: 'gpt-5.6-terra' } } : {}), phase: "classifying", sequence: 0, agents: [], assignments: {}, evidence: {}, runtimeVisualEvidence: visual ? { path: visual, route: runtimeVisualRoute, start: visualStart(visual) } : undefined, createdAt: stamp() };
+  fs.writeFileSync(path.join(run, "request.txt"), state.request, { mode: 0o600 }); const config = { workspace, scopeFile, codexBin: state.codexBin, executionMode }; atomic(path.join(run, "config.json"), config); state.configHash = hash(JSON.stringify(config, null, 2)); persist(state, "start"); options.onRunCreated?.(run); return drive(state, options);
 }
 export async function status(run) {
   if (readJson(path.join(path.resolve(run), 'state.json')).session) return (await import('./queue-session.mjs')).queueStatus(run);
@@ -216,7 +235,7 @@ export async function resume({ run, retry = false, ...options }) {
 }
 async function main() {
   try { const [command, ...args] = process.argv.slice(2); const value = (key) => cliValue(args, key); let state;
-    if (command === "start") { ensure(value("--workspace") && value("--request-file"), "start needs --workspace and --request-file"); state = await start({ workspace: value("--workspace"), requestFile: value("--request-file"), scopeFile: value("--scope-file"), planFile: value('--plan-file'), concurrency: Number(value('--concurrency') ?? 2), runtimeVisualEvidenceFile: value("--runtime-visual-evidence"), runtimeVisualRoute: value("--runtime-visual-route"), codexBin: value("--codex-bin"), onRunCreated: (run) => console.log(run) }); }
+    if (command === "start") { ensure(value("--workspace") && value("--request-file"), "start needs --workspace and --request-file"); state = await start({ workspace: value("--workspace"), requestFile: value("--request-file"), scopeFile: value("--scope-file"), planFile: value('--plan-file'), executionMode: value('--execution-mode'), concurrency: Number(value('--concurrency') ?? 2), runtimeVisualEvidenceFile: value("--runtime-visual-evidence"), runtimeVisualRoute: value("--runtime-visual-route"), codexBin: value("--codex-bin"), onRunCreated: (run) => console.log(run) }); }
     else if (command === "status") state = await status(value("--run")); else if (command === "resume") state = await resume({ run: value("--run"), retry: args.includes("--retry"), recoverInterrupted: args.includes('--recover-interrupted') }); else throw new Error("usage: start --workspace ABS --request-file ABS [--scope-file ABS] [--plan-file JSON --concurrency 1|2] [--runtime-visual-evidence FILE --runtime-visual-route ROUTE] [--codex-bin ABS] | status --run ABS | resume --run ABS [--retry] [--recover-interrupted]");
     console.log(JSON.stringify({ run: state.run ?? state.session, phase: state.phase, reason: state.reason })); if (state.phase === "blocked") process.exitCode = 1;
   } catch (error) { console.error(error.message); process.exitCode = 1; }

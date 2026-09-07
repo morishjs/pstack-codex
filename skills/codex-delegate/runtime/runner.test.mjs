@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, chmodSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -20,7 +21,8 @@ async function fixture({ missingMarker = false, missingIds = false, baselinePass
   await writeFile(
     bin,
     `#!/usr/bin/env node
-import {writeFileSync,mkdirSync} from 'node:fs'; import {randomUUID} from 'node:crypto'; const a=process.argv, out=a[a.indexOf('-o')+1], m=a[a.indexOf('-m')+1], mode=process.env.FAKE_MODE; console.log(JSON.stringify({type:'thread.started',thread_id:randomUUID()}));
+import {writeFileSync,mkdirSync,readFileSync} from 'node:fs'; import {randomUUID} from 'node:crypto'; const a=process.argv, out=a[a.indexOf('-o')+1], schema=JSON.parse(readFileSync(a[a.indexOf('--output-schema')+1],'utf8')), m=schema.properties.checks?'gpt-6-astra':schema.properties.summary?'gpt-5.6-terra':'gpt-5.6-sol', mode=process.env.FAKE_MODE; const thread=process.env.FAKE_THREAD_ID||(a.includes('resume')&&mode!=='wrong-thread'?a.at(-2):randomUUID()); if(mode!=='missing-thread') console.log(JSON.stringify({type:'thread.started',thread_id:thread}));
+if(m==='gpt-6-astra'&&mode==='author-production') writeFileSync('app.mjs','export const app = 1;');
 if(m==='gpt-5.6-terra') writeFileSync('app.mjs','export const app = 1;');
 if(m==='gpt-5.6-terra'&&mode==='syntax') writeFileSync('app.mjs','export const app = ;');
 if(m==='gpt-5.6-terra'&&mode==='frozen') writeFileSync('check.mjs','console.log("BASE PASS")// changed'); if(m==='gpt-5.6-sol'&&mode==='review-mutate') writeFileSync('app.mjs','export const app = 2;');
@@ -532,5 +534,125 @@ test("model handoff omits repository fingerprint entries", async () => {
     const prompt = readFileSync(path.join(agent.dir, "prompt.txt"), "utf8");
     assert.match(prompt, /handoff.json/);
     assert.match(prompt, /Never read state.json/);
+  }
+});
+
+test("lead author, worker and repair reuse one session with fresh Sol reviews", async () => {
+  const f = await fixture(), calls = [], seed = { model: "lead-model" };
+  let reviews = 0;
+  const spawn = (cmd, args, opts) => {
+    if (args.includes("-m")) calls.push(args);
+    const review = args.includes("-m") && args[args.indexOf("-m") + 1] === "gpt-5.6-sol";
+    return fakeSpawn(f, review && reviews++ === 0 ? "review-repair" : "normal")(cmd, args, opts);
+  };
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, leadSession: seed, spawn });
+  assert.equal(s.phase, "complete", s.reason);
+  assert.deepEqual(s.agents.map((a) => a.role), ["author", "worker", "reviewer", "worker", "reviewer"]);
+  assert.deepEqual(s.agents.filter((a) => a.role !== "reviewer").map((a) => a.threadId), Array(3).fill(s.leadSession.threadId));
+  assert.equal(new Set(s.agents.map((a) => a.threadId)).size, 3);
+  assert.deepEqual(s.agents.map((a) => a.model), ["lead-model", "lead-model", "gpt-5.6-sol", "lead-model", "gpt-5.6-sol"]);
+  for (const [i, args] of calls.entries()) {
+    assert(!args.includes("--last"));
+    if (i === 1 || i === 3) {
+      const dir = s.agents[i].dir;
+      assert.deepEqual(args, ["exec", "-C", s.workspace, "-s", "workspace-write", "resume", "-m", "lead-model", "-c", 'model_reasoning_effort="medium"', "--json", "--output-schema", path.join(dir, "schema.json"), "-o", path.join(dir, "result.json"), s.leadSession.threadId, "-"]);
+    } else assert(!args.includes("resume"));
+  }
+  assert.deepEqual(seed, { model: "lead-model" });
+  assert.deepEqual(s.config.leadSession, seed);
+  assert.notEqual(s.config.leadSession, s.leadSession);
+  assert.deepEqual(JSON.parse(readFileSync(path.join(s.run, "config.json"), "utf8")).leadSession, seed);
+  assert.equal((await status(s.run)).phase, "complete");
+  assert.equal((await resume({ run: s.run, spawn })).phase, "complete");
+  for (const agent of s.agents.filter((a) => a.role !== "reviewer")) {
+    const prompt = readFileSync(path.join(agent.dir, "prompt.txt"), "utf8");
+    assert.match(prompt, agent.role === "author" ? /this turn is author tests-only/ : /this turn is worker production-only/);
+    assert.match(prompt, /current run contract and handoff; never broaden the fixed scope/);
+  }
+});
+
+for (const mode of ["missing-thread", "wrong-thread"]) test(`lead resume fails closed on ${mode}`, async () => {
+  const f = await fixture();
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, leadSession: { model: "lead-model", threadId: "expected-lead" }, spawn: fakeSpawn(f, mode) });
+  assert.equal(s.phase, "blocked");
+  assert.equal(s.blockedPhase, "authoring");
+  assert.match(s.reason, /failed or incomplete|session ID mismatch/);
+  assert.equal(s.leadSession.threadId, "expected-lead");
+  assert.equal(s.agents.length, 1);
+});
+
+test("missing first lead receipt cannot establish a session", async () => {
+  const f = await fixture();
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, leadSession: { model: "lead-model" }, spawn: fakeSpawn(f, "missing-thread") });
+  assert.equal(s.phase, "blocked");
+  assert.equal(s.leadSession.threadId, undefined);
+});
+
+test("failed resumed worker preserves lead identity and retry resumes the same thread", async () => {
+  const f = await fixture();
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, leadSession: { model: "lead-model" }, spawn: fakeSpawn(f, "partial-worker") });
+  assert.equal(s.blockedPhase, "implementing");
+  const result = await resume({ run: s.run, retry: true, spawn: fakeSpawn(f) });
+  assert.equal(result.phase, "complete", result.reason);
+  assert.equal(result.leadSession.threadId, s.leadSession.threadId);
+  assert(result.agents.filter((a) => a.role !== "reviewer").every((a) => a.threadId === s.leadSession.threadId));
+});
+
+for (const mode of ["author-production", "frozen", "review-test"]) test(`lead sessions retain phase ownership guard: ${mode}`, async () => {
+  const f = await fixture();
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, leadSession: { model: "lead-model" }, spawn: fakeSpawn(f, mode) });
+  assert.equal(s.phase, "blocked");
+  assert.match(s.reason, /author changed non-test|frozen test changed|workspace changed/);
+});
+
+for (const duplicate of ["lead", "reviewer"]) test(`reviewer cannot reuse ${duplicate} session`, async () => {
+  const f = await fixture();
+  let reviews = 0;
+  const spawn = (cmd, args, opts) => {
+    if (!args.includes("-m")) return nativeSpawn(cmd, args, opts);
+    const review = args[args.indexOf("-m") + 1] === "gpt-5.6-sol";
+    return nativeSpawn(process.execPath, [f.bin, ...args], { ...opts, env: { ...process.env,
+      FAKE_THREAD_ID: review && duplicate === "reviewer" ? "repeated-review" : "lead-id",
+      FAKE_MODE: review && reviews++ === 0 ? "review-repair" : "normal",
+    } });
+  };
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, leadSession: { model: "lead-model", threadId: "lead-id" }, spawn });
+  assert.equal(s.phase, "blocked");
+  assert.equal(s.blockedPhase, "reviewing");
+  assert.match(s.reason, /reviewer session must be fresh/);
+});
+
+test("contract revision resumes prior lead and rejects prior reviewer sessions", async () => {
+  const f = await fixture();
+  const prior = await start({ workspace: f.root, requestFile: f.requestFile, leadSession: { model: "lead-model" }, spawn: fakeSpawn(f, "review-contract") });
+  writeFileSync(f.bin, readFileSync(f.bin, "utf8").replace("baseline:'fail'", "baseline:'pass'"));
+  await assert.rejects(start({ workspace: f.root, requestFile: f.requestFile, revisionOf: prior.run, leadSession: { model: 'lead-model', threadId: 'unrelated-thread' }, spawn: fakeSpawn(f) }), /retain the prior lead thread/);
+  const revision = await start({ workspace: f.root, requestFile: f.requestFile, revisionOf: prior.run, spawn: fakeSpawn(f) });
+  assert.equal(revision.phase, "complete", revision.reason);
+  assert.equal(revision.agents[0].threadId, prior.leadSession.threadId);
+  assert.deepEqual(revision.config.leadSession, prior.leadSession);
+  assert.equal((await status(revision.run)).phase, "complete");
+  const oldReviewer = prior.agents.find((a) => a.role === "reviewer").threadId;
+  const spawn = (cmd, args, opts) => args.includes("-m") && args[args.indexOf("-m") + 1] === "gpt-5.6-sol"
+    ? nativeSpawn(process.execPath, [f.bin, ...args], { ...opts, env: { ...process.env, FAKE_THREAD_ID: oldReviewer } })
+    : fakeSpawn(f)(cmd, args, opts);
+  const blocked = await start({ workspace: f.root, requestFile: f.requestFile, revisionOf: revision.run, leadSession: revision.leadSession, spawn });
+  assert.equal(blocked.phase, "blocked");
+  assert.match(blocked.reason, /reviewer session must be fresh/);
+});
+
+test("internal CLI lead opt-in preserves an explicit thread and rejects incomplete flags", async () => {
+  const f = await fixture();
+  chmodSync(f.bin, 0o700);
+  const args = [fileURLToPath(new URL("./runner.mjs", import.meta.url)), "start", "--workspace", f.root, "--request-file", f.requestFile, "--codex-bin", f.bin];
+  const output = execFileSync(process.execPath, [...args, "--lead-model", "lead-model", "--lead-thread", "cli-lead"], { encoding: "utf8" });
+  const result = JSON.parse(output.trim().split("\n").at(-1));
+  assert.equal(result.phase, "complete", result.reason);
+  const state = await status(result.run);
+  assert.equal(state.leadSession.threadId, "cli-lead");
+  assert.equal(state.agents[0].threadId, "cli-lead");
+  assert.equal(state.agents[1].threadId, "cli-lead");
+  for (const flags of [["--lead-thread", "cli-lead"], ["--lead-model"], ["--lead-model", "lead-model", "--lead-thread"]]) {
+    assert.throws(() => execFileSync(process.execPath, [...args, ...flags], { encoding: "utf8", stdio: "pipe" }), /lead session needs|explicit session ID/);
   }
 });

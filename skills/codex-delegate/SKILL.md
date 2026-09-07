@@ -5,7 +5,7 @@ description: Route a bounded workspace request through Codex Delegate's autonomo
 
 # Codex Delegate
 
-Use the orchestrator as the entry point. It classifies the request, selects a registered workflow, assigns models through `runtime/model-policy.json`, records required evidence, then repairs or blocks on failed gates.
+Use one lead session to retain the task's context across investigation, acceptance, implementation, and repair. The orchestrator still controls phase boundaries and evidence gates. Only final Sol review starts a fresh independent session. Delegate narrow independent tasks through the queue when their size justifies separate workers.
 
 Read [references/runtime.md](references/runtime.md) before invoking it. Read [references/workflows.md](references/workflows.md) for workflow-specific phases and [references/model-routing.md](references/model-routing.md) for routing and promotion rules.
 
@@ -16,6 +16,8 @@ Create a request file. Optionally provide a scope contract with `allowedImplemen
 For isolated code workers, prepare a reusable checkout as described in [worker-workspaces.md](references/worker-workspaces.md). Use the returned workspace with the orchestrator. Reuse the same worker ID for repairs; read-only investigation uses the existing checkout without installation.
 
 For independent API/Web or other disjoint implementation lanes, use the [dependency queue](references/dependency-queue.md) with `--plan-file`. Establish shared contracts as predecessors. The queue runs up to two ready lanes, preserves successful work across retries, then verifies the integrated artifact with Sol.
+
+A phase transition does not require a new model session. Reuse completed investigation and the lead's conversation. Read handoff.json for changes and verification outcomes, and reopen code only when relevant input changed or evidence is missing. Queue lanes each keep their own lead session; use one ordinary run for small fixes.
 
 ```bash
 node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \

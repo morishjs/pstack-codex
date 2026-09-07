@@ -119,7 +119,7 @@ test('public CLI plan path executes real queue, runner and final review using fa
   fs.writeFileSync(binary, `#!/usr/bin/env node
 const fs = require('node:fs'), path = require('node:path'), {randomUUID} = require('node:crypto');
 const args=process.argv, out=args[args.indexOf('-o')+1], schema=JSON.parse(fs.readFileSync(args[args.indexOf('--output-schema')+1]));
-console.log(JSON.stringify({type:'thread.started',thread_id:randomUUID()}));
+console.log(JSON.stringify({type:'thread.started',thread_id:args.includes('resume')?args.at(-2):randomUUID()}));
 let result;
 if(schema.properties.workflow) result={workflow:'simple-fix',taskClass:'simple-fix',risk:'low',complexity:'low',signals:[],reason:'fixture',authorizedActions:['local-workspace'],finishAfterInvestigation:false};
 else {
