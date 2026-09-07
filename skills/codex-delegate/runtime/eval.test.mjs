@@ -30,6 +30,7 @@ test("grader allows the scoped controller and acceptance test but rejects scope 
       "",
     ].join("\n"),
   );
+  mkdirSync(path.join(prepared.workspace, "test"), { recursive: true });
   writeFileSync(
     path.join(prepared.workspace, "test", "controller.acceptance.test.mjs"),
     'import test from "node:test";\ntest("acceptance", () => {});\n',
