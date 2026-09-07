@@ -15,7 +15,7 @@ const stamp = () => new Date().toISOString();
 const ensure = (ok, message) => { if (!ok) throw new Error(message); };
 const readJson = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
 const hash = (value) => createHash("sha256").update(value).digest("hex");
-export function cliValue(args, key) { const index = args.indexOf(key); return index < 0 ? undefined : args[index + 1]; }
+export function cliValue(args, key) { const index = args.indexOf(key); if (index < 0) return undefined; ensure(args[index + 1] && !args[index + 1].startsWith('--'), `missing value for ${key}`); return args[index + 1]; }
 
 export const orchestratorMachine = createMachine({
   id: "codex-delegate-orchestrator",
@@ -26,7 +26,7 @@ export const orchestratorMachine = createMachine({
     designing: { on: { DESIGNED: "running", BLOCK: "blocked" } },
     running: { on: { COMPLETE: "delivering", BLOCK: "blocked" } },
     delivering: { on: { DELIVERED: "complete", BLOCK: "blocked" } },
-    blocked: { on: { RETRY: "classifying", RESUME: "running" } },
+    blocked: { on: { RETRY: "classifying", RESUME: "running", RETRY_INVESTIGATION: "investigating", RETRY_DESIGN: "designing", RETRY_DELIVERY: "delivering" } },
     complete: { type: "final" },
   },
 });
@@ -113,7 +113,7 @@ function contextArtifact(file, label) { return { path: file, label, hash: hash(f
 function promptFor(state, phase) {
   const base = `You are the ${phase} phase for Codex Delegate. Workspace: ${state.workspace}. Original request:\n${state.request}\n\nDo not write workspace files, commit, push, deploy, message external systems, or spawn agents. Return only JSON matching the schema.`;
   if (phase === "classify") return `${base}\nChoose one registered workflow. Set taskClass to that exact registered workflow key; put any free-form diagnosis only in reason. Authorization is an action ceiling: only read-only/local-workspace are allowed; never infer push, merge, deploy, or external writes.`;
-  return `${base}\nClassification: ${JSON.stringify(state.classification)}\nProvide direct local evidence paths/commands and unknowns.`;
+  return `${base}\nClassification: ${JSON.stringify(state.classification)}\n${state.investigation ? `Prior investigation: ${path.join(state.run, 'investigation.json')}. Reuse its findings and inspect only unresolved evidence.` : ''}\nProvide direct local evidence paths/commands and unknowns. Read only files relevant to the request and scope; avoid entire repository or home-directory dumps.`;
 }
 function loadPolicy() { const policy = readJson(path.join(runtimeDir, "model-policy.json")); ensure(validateModelPolicy(policy).valid, "invalid model policy"); return policy; }
 function finish(state) {
@@ -150,9 +150,10 @@ async function drive(state, options) {
         const contextArtifacts = [
           ...(state.investigation ? [contextArtifact(path.join(state.run, "investigation.json"), "investigation")] : []),
           ...(state.design ? [contextArtifact(path.join(state.run, "design.json"), "design")] : []),
-          ...(state.priorNestedRun ? [contextArtifact(path.join(state.priorNestedRun, "state.json"), "prior nested run state")] : []),
         ];
         const runnerOptions = { ...options, models, workflow: state.classification.workflow, reviewRequired, contextArtifacts,
+          revisionOf: state.priorNestedRun,
+          onRunCreated: (run) => { state.nestedRun = run; persist(state, 'nested-started', { run }); },
           ...(state.classification.workflow === "ui-change" ? { visualEvidence: state.runtimeVisualEvidence } : {}) };
         const nested = state.nestedRun ? await resumeRunner({ run: state.nestedRun, retry: options.retry === true, ...runnerOptions }) : await startRunner({ workspace: state.workspace, requestFile: path.join(state.run, "request.txt"), scopeFile: state.scopeFile, codexBin: state.codexBin, ...runnerOptions });
         state.nestedRun = nested.run; state.nestedPhase = nested.phase; persist(state, "nested-run", { run: nested.run, phase: nested.phase, models });
@@ -186,7 +187,11 @@ async function drive(state, options) {
   return state;
 }
 function load(run) { const state = readJson(path.join(path.resolve(run), "state.json")); ensure(state.version === VERSION && state.run === path.resolve(run), "run identity/version mismatch"); ensure(hash(fs.readFileSync(path.join(state.run, "request.txt"))) === state.requestHash, "request changed"); ensure(hash(fs.readFileSync(path.join(state.run, "config.json"))) === state.configHash, "run config changed"); return state; }
-export async function start({ workspace, requestFile, scopeFile, runtimeVisualEvidenceFile, runtimeVisualRoute, policy, ...options }) {
+export async function start({ workspace, requestFile, scopeFile, planFile, runtimeVisualEvidenceFile, runtimeVisualRoute, policy, ...options }) {
+  if (planFile) {
+    const { startQueue } = await import('./queue-session.mjs');
+    return startQueue({ source: workspace, requestFile, scopeFile, planFile, ...options, onSessionCreated: options.onRunCreated });
+  }
   validateWorkflowRegistry(); workspace = fs.realpathSync(workspace); ensure(path.isAbsolute(workspace) && text(fs.readFileSync(requestFile, "utf8")), "workspace/request required");
   const run = path.join(workspace, ".codex-delegate", "sessions", randomUUID()); fs.mkdirSync(path.join(run, "phases"), { recursive: true, mode: 0o700 });
   const visual = runtimeVisualEvidenceFile ? path.resolve(runtimeVisualEvidenceFile) : undefined;
@@ -194,12 +199,26 @@ export async function start({ workspace, requestFile, scopeFile, runtimeVisualEv
   const state = { version: VERSION, id: path.basename(run), run, workspace, request: fs.readFileSync(requestFile, "utf8"), requestHash: hash(fs.readFileSync(requestFile, "utf8")), scopeFile, codexBin: options.codexBin ?? "codex", policy: selectedPolicy, phase: "classifying", sequence: 0, agents: [], assignments: {}, evidence: {}, runtimeVisualEvidence: visual ? { path: visual, route: runtimeVisualRoute, start: visualStart(visual) } : undefined, createdAt: stamp() };
   fs.writeFileSync(path.join(run, "request.txt"), state.request, { mode: 0o600 }); const config = { workspace, scopeFile, codexBin: state.codexBin }; atomic(path.join(run, "config.json"), config); state.configHash = hash(JSON.stringify(config, null, 2)); persist(state, "start"); options.onRunCreated?.(run); return drive(state, options);
 }
-export async function status(run) { const state = load(run); if (state.nestedRun) state.nestedStatus = await runnerStatus(state.nestedRun); return state; }
-export async function resume({ run, retry = false, ...options }) { const state = load(run); if (state.phase === "complete") return state; if (state.phase === "blocked") { ensure(retry, "blocked run needs --retry"); if (state.blockedPhase === "running" && state.nestedRun) move(state, "RESUME"); else { state.phase = "classifying"; persist(state, "retry-classification"); } } return drive(state, { ...options, retry }); }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+export async function status(run) {
+  if (readJson(path.join(path.resolve(run), 'state.json')).session) return (await import('./queue-session.mjs')).queueStatus(run);
+  const state = load(run); if (state.nestedRun) state.nestedStatus = await runnerStatus(state.nestedRun); return state;
+}
+export async function resume({ run, retry = false, ...options }) {
+  if (readJson(path.join(path.resolve(run), 'state.json')).session) return (await import('./queue-session.mjs')).resumeQueue({ session: run, retry, ...options });
+  const state = load(run);
+  if (state.phase === 'complete') { if (state.nestedRun) { const nested = await runnerStatus(state.nestedRun); ensure(nested.phase === 'complete', nested.reason ?? 'nested evidence stale'); } return state; }
+  if (state.phase === 'blocked') {
+    ensure(retry, 'blocked run needs --retry');
+    const event = { classifying: 'RETRY', investigating: 'RETRY_INVESTIGATION', designing: 'RETRY_DESIGN', running: 'RESUME', delivering: 'RETRY_DELIVERY' }[state.blockedPhase];
+    ensure(event, 'unknown blocked phase'); move(state, event);
+  }
+  return drive(state, { ...options, retry });
+}
+async function main() {
   try { const [command, ...args] = process.argv.slice(2); const value = (key) => cliValue(args, key); let state;
-    if (command === "start") { ensure(value("--workspace") && value("--request-file"), "start needs --workspace and --request-file"); state = await start({ workspace: value("--workspace"), requestFile: value("--request-file"), scopeFile: value("--scope-file"), runtimeVisualEvidenceFile: value("--runtime-visual-evidence"), runtimeVisualRoute: value("--runtime-visual-route"), codexBin: value("--codex-bin"), onRunCreated: (run) => console.log(run) }); }
-    else if (command === "status") state = await status(value("--run")); else if (command === "resume") state = await resume({ run: value("--run"), retry: args.includes("--retry") }); else throw new Error("usage: start --workspace ABS --request-file ABS [--scope-file ABS] [--runtime-visual-evidence FILE --runtime-visual-route ROUTE] [--codex-bin ABS] | status --run ABS | resume --run ABS [--retry]");
-    console.log(JSON.stringify({ run: state.run, phase: state.phase, reason: state.reason })); if (state.phase === "blocked") process.exitCode = 1;
+    if (command === "start") { ensure(value("--workspace") && value("--request-file"), "start needs --workspace and --request-file"); state = await start({ workspace: value("--workspace"), requestFile: value("--request-file"), scopeFile: value("--scope-file"), planFile: value('--plan-file'), concurrency: Number(value('--concurrency') ?? 2), runtimeVisualEvidenceFile: value("--runtime-visual-evidence"), runtimeVisualRoute: value("--runtime-visual-route"), codexBin: value("--codex-bin"), onRunCreated: (run) => console.log(run) }); }
+    else if (command === "status") state = await status(value("--run")); else if (command === "resume") state = await resume({ run: value("--run"), retry: args.includes("--retry"), recoverInterrupted: args.includes('--recover-interrupted') }); else throw new Error("usage: start --workspace ABS --request-file ABS [--scope-file ABS] [--plan-file JSON --concurrency 1|2] [--runtime-visual-evidence FILE --runtime-visual-route ROUTE] [--codex-bin ABS] | status --run ABS | resume --run ABS [--retry] [--recover-interrupted]");
+    console.log(JSON.stringify({ run: state.run ?? state.session, phase: state.phase, reason: state.reason })); if (state.phase === "blocked") process.exitCode = 1;
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

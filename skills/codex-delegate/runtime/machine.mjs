@@ -5,7 +5,7 @@ export const delegateMachine = createMachine({
   initial: "authoring",
   states: {
     authoring: { on: { AUTHOR_OK: "baseline", BLOCK: "blocked" } },
-    baseline: { on: { BASELINE_OK: "implementing", BLOCK: "blocked" } },
+    baseline: { on: { BASELINE_OK: "implementing", BASELINE_SATISFIED: "verifying", BLOCK: "blocked" } },
     implementing: { on: { IMPLEMENTED: "verifying", BLOCK: "blocked" } },
     verifying: {
       on: { VERIFIED: "reviewing", REPAIR: "implementing", BLOCK: "blocked" },

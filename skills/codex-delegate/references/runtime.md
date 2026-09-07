@@ -39,7 +39,11 @@ Required external verification cannot be relabeled as local evidence. The nested
 
 ## Block and recovery boundary
 
-Use `status` before retrying. `resume --retry` restarts classification for blocked orchestrator phases; if a nested run was blocked while running, it resumes that run. Do not delete locks, journals, or evidence to force progress.
+Use `status` before retrying. `resume --retry` resumes the failed phase, retaining investigation and design. Verification environment failures retain the implementation and rerun failed checks; successful checks are reused only when workspace, contract, test, runtime environment, and pnpm installation metadata fingerprints match. A review environment failure retries a fresh review only. Do not delete locks, journals, or evidence to force progress.
+
+Baseline executes the acceptance commands before a worker starts. Reviewers use workspace-write to permit the same cache-producing tools; instructions forbid source edits and the runner checks the repository fingerprint afterward. Already-passing baseline checks skip a redundant implementation agent, then undergo verification and fresh Sol review. UI and performance work retain their implementation phase for fresh evidence.
+
+Contract revisions preserve implementation and snapshot prior contract, red/green logs, review, and frozen tests. The author receives these through compact handoff.json. Previously fixed checks use a passing current baseline; original failing evidence stays in the prior snapshot. Only new missing conditions need new checks. Within one outer session revisions rerun acceptance without repeating investigation/design, with a bounded two-revision budget and Astra escalation on repetition.
 
 Nested-run recovery is an internal exceptional path. It first requires inspection that its owner and child process group are no longer live, validates workspace and frozen-contract integrity, records a reason, and only then permits retry. A reviewer-requested contract revision is non-retryable and needs a new run with earlier evidence.
 

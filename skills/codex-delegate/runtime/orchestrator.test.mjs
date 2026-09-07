@@ -6,7 +6,7 @@ import path from "node:path";
 import os from "node:os";
 import { execFileSync, spawn as nativeSpawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cliValue, start, transition } from "./orchestrator.mjs";
+import { cliValue, start, resume, transition } from "./orchestrator.mjs";
 import { canonicalRouteKey } from "./model-policy.mjs";
 
 async function fixture(route) {
@@ -44,6 +44,8 @@ test("CLI omits absent optional values", () => {
   assert.equal(cliValue(args, "--workspace"), "/tmp/project");
   assert.equal(cliValue(args, "--runtime-visual-evidence"), undefined);
   assert.equal(cliValue(args, "--runtime-visual-route"), undefined);
+  assert.throws(() => cliValue(['--plan-file'], '--plan-file'), /missing value/);
+  assert.throws(() => cliValue(['--plan-file', '--workspace', '/tmp'], '--plan-file'), /missing value/);
 });
 test("investigation route stops after read-only findings", async () => {
   const f = await fixture({ ...simple, workflow: "investigation", taskClass: "investigation", authorizedActions: ["read-only"], finishAfterInvestigation: true }), seen = [];
@@ -52,11 +54,27 @@ test("investigation route stops after read-only findings", async () => {
   assert.deepEqual(seen, ["gpt-5.6-terra", "gpt-5.6-sol"]);
   assert.equal(state.agents.every((agent) => agent.sandbox === "read-only"), true);
 });
-test("simple fix uses Terra worker and still gets unevaluated Sol review", async () => {
+test('investigation retry preserves classification instead of restarting the workflow', async () => {
+  const f = await fixture({ ...simple, workflow: 'bug-fix', taskClass: 'bug-fix' });
+  const seen = []; let failed = false;
+  const spawn = (cmd, args, options) => {
+    if (!args.includes('-m')) return nativeSpawn(cmd, args, options);
+    const model = args[args.indexOf('-m') + 1]; seen.push(model);
+    if (model === 'gpt-5.6-sol' && !failed) { failed = true; return nativeSpawn(process.execPath, ['-e', 'process.exit(1)'], options); }
+    return nativeSpawn(process.execPath, [f.bin, ...args], options);
+  };
+  const first = await start({ workspace: f.root, requestFile: f.requestFile, spawn });
+  assert.equal(first.blockedPhase, 'investigating');
+  const result = await resume({ run: first.run, retry: true, spawn });
+  assert.equal(result.phase, 'complete', result.reason);
+  assert.equal(seen.filter(model => model === 'gpt-5.6-terra').length, 1);
+});
+test("already satisfied simple fix skips worker and still gets Sol review", async () => {
   const f = await fixture(simple), seen = [];
   const state = await start({ workspace: f.root, requestFile: f.requestFile, codexBin: process.execPath, spawn: spawnFor(f, seen) });
   assert.equal(state.phase, "complete", state.reason);
-  assert.deepEqual(seen, ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-sol"]);
+  assert.deepEqual(seen, ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-sol"]);
+  assert.equal(state.evidence['change-set'].status, 'not-needed');
   assert.equal(state.assignments.implement.model, "gpt-5.6-terra");
 });
 test("bug fixes investigate with Sol and contradictions escalate acceptance to Astra", async () => {
@@ -64,7 +82,7 @@ test("bug fixes investigate with Sol and contradictions escalate acceptance to A
   const f = await fixture(route), seen = [];
   const state = await start({ workspace: f.root, requestFile: f.requestFile, codexBin: process.execPath, spawn: spawnFor(f, seen) });
   assert.equal(state.phase, "complete", state.reason);
-  assert.deepEqual(seen, ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-terra", "gpt-5.6-sol"]);
+  assert.deepEqual(seen, ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-sol"]);
   assert.equal(state.assignments.acceptance.model, "gpt-6-astra");
   const nested = JSON.parse(readFileSync(path.join(state.nestedRun, "state.json"), "utf8"));
   assert.equal(nested.contextArtifacts.some((artifact) => artifact.label === "investigation"), true);
@@ -102,7 +120,7 @@ test("contract revisions restart with Sol then Astra and stop at the budget", as
   assert.equal(state.phase, "blocked");
   assert.match(state.reason, /revision budget exhausted/);
   assert.equal(state.contractRevisions, 2);
-  assert.deepEqual(seen, ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-terra", "gpt-5.6-sol"]);
+  assert.deepEqual(seen, ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-sol", "gpt-5.6-sol", "gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-sol"]);
 });
 
 test("UI route accepts post-implementation valid runtime visual evidence", async () => {
@@ -155,7 +173,7 @@ test("evaluated simple-fix route still invokes Sol and records independent revie
   policy.evaluatedRoutes.push({ ...artifact, evaluationVersion: 1, evidencePath, evidenceHash: createHash("sha256").update(raw).digest("hex"), status: "evaluated" });
   const seen = [], state = await start({ workspace: f.root, requestFile: f.requestFile, policy, codexBin: process.execPath, spawn: spawnFor(f, seen) });
   assert.equal(state.phase, "complete", state.reason);
-  assert.deepEqual(seen, ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-sol"]);
+  assert.deepEqual(seen, ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-sol"]);
   assert.equal(state.evidence["independent-review"].status, "pass");
   assert.equal(state.assignments.review.model, "gpt-5.6-sol");
 });

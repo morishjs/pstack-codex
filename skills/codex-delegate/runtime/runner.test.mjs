@@ -10,21 +10,25 @@ import { execFileSync } from "node:child_process";
 import { start, resume, status, recover } from "./runner.mjs";
 import { transition } from "./machine.mjs";
 
-async function fixture({ missingMarker = false, missingIds = false } = {}) {
+async function fixture({ missingMarker = false, missingIds = false, baselinePass = false, secondCheck = false } = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "delegate-"));
   execFileSync("git", ["init", "-q"], { cwd: root });
-  await writeFile(path.join(root, "check.mjs"), 'console.log("BASE PASS")');
-  await writeFile(path.join(root, "app.mjs"), "export const app = 1;");
+  await writeFile(path.join(root, "check.mjs"), 'import {app} from "./app.mjs"; console.log(app ? "BASE PASS" : "BASE FAIL"); process.exit(app ? 0 : 1);');
+  await writeFile(path.join(root, "app.mjs"), `export const app = ${baselinePass ? 1 : 0};`);
   await writeFile(path.join(root, "request.txt"), "make it work");
   const bin = path.join(root, "fake-codex.mjs");
   await writeFile(
     bin,
     `#!/usr/bin/env node
-import {writeFileSync} from 'node:fs'; import {randomUUID} from 'node:crypto'; const a=process.argv, out=a[a.indexOf('-o')+1], m=a[a.indexOf('-m')+1], mode=process.env.FAKE_MODE; console.log(JSON.stringify({type:'thread.started',thread_id:randomUUID()}));
+import {writeFileSync,mkdirSync} from 'node:fs'; import {randomUUID} from 'node:crypto'; const a=process.argv, out=a[a.indexOf('-o')+1], m=a[a.indexOf('-m')+1], mode=process.env.FAKE_MODE; console.log(JSON.stringify({type:'thread.started',thread_id:randomUUID()}));
+if(m==='gpt-5.6-terra') writeFileSync('app.mjs','export const app = 1;');
+if(m==='gpt-5.6-terra'&&mode==='syntax') writeFileSync('app.mjs','export const app = ;');
 if(m==='gpt-5.6-terra'&&mode==='frozen') writeFileSync('check.mjs','console.log("BASE PASS")// changed'); if(m==='gpt-5.6-sol'&&mode==='review-mutate') writeFileSync('app.mjs','export const app = 2;');
 if(m==='gpt-5.6-terra'&&mode==='partial-worker') {writeFileSync('app.mjs','export const app = 3;'); process.exit(1);}
+if(m==='gpt-5.6-sol'&&mode==='review-cache') {mkdirSync('.cache',{recursive:true});writeFileSync('.cache/result','cache');}
+if(m==='gpt-5.6-sol'&&mode==='review-test') writeFileSync('check.mjs','console.log("PASS")');
 if(mode==='slow') await new Promise(resolve=>setTimeout(resolve,100));
-const c=m==='gpt-6-astra'?{status:'ready',reason:'fixture',requirements:[{id:'R1',description:'works',checkIds:${missingIds ? "[]" : "['C1']"}}],checks:[{id:'C1',argv:['node','check.mjs'],testFiles:['check.mjs'],baseline:'pass',baselineMarker:'${missingMarker ? "MISSING" : "BASE"}',passMarker:'PASS'}],implementationPaths:['app.mjs']} : m==='gpt-5.6-terra'?{status:'done',summary:'done'}:{status:mode==='review-repair'||(mode??'').startsWith('review-contract')?'changes_requested':'pass',nextAction:(mode??'').startsWith('review-contract')?'contract_revision':'repair',requirements:mode==='review-omit'?[]:[{id:'R1',status:mode==='review-contract-blocked'?'blocked':'pass',evidence:'check'}],findings:mode==='review-repair'||(mode??'').startsWith('review-contract')?['repair requested']:[]}; writeFileSync(out,JSON.stringify(c)); console.log(JSON.stringify({type:'turn.completed',thread_id:randomUUID()}));`,
+const c=m==='gpt-6-astra'?{status:'ready',reason:'fixture',requirements:[{id:'R1',description:'works',checkIds:${missingIds ? "[]" : "['C1']"}}],checks:[{id:'C1',argv:['node','check.mjs'],testFiles:['check.mjs'],baseline:'${baselinePass ? 'pass' : 'fail'}',baselineMarker:'${missingMarker ? "MISSING" : "BASE"}',passMarker:'PASS'}],implementationPaths:['app.mjs']} : m==='gpt-5.6-terra'?{status:'done',summary:'done'}:{status:mode==='review-env'?'blocked':mode==='review-repair'||(mode??'').startsWith('review-contract')?'changes_requested':'pass',nextAction:mode==='review-env'?'environment_repair':(mode??'').startsWith('review-contract')?'contract_revision':'repair',requirements:mode==='review-omit'?[]:[{id:'R1',status:mode==='review-contract-blocked'||mode==='review-env'?'blocked':'pass',evidence:'check'}],findings:mode==='review-repair'||(mode??'').startsWith('review-contract')?['repair requested']:[]}; if(m==='gpt-6-astra'&&${secondCheck}) {c.checks.push({...c.checks[0],id:'C2',argv:['node','check.mjs','C2']});c.requirements[0].checkIds.push('C2');} writeFileSync(out,JSON.stringify(c)); console.log(JSON.stringify({type:'turn.completed',thread_id:randomUUID()}));`,
   );
   execFileSync("git", ["add", "."], { cwd: root });
   execFileSync(
@@ -383,7 +387,7 @@ test("frozen hash manifest cannot be replaced after completion", async () => {
   assert.match(result.reason, /manifest changed/);
 });
 
-test("CLI roles retain medium reasoning and read-only review", async () => {
+test("CLI roles retain medium reasoning and workspace-write review", async () => {
   const f = await fixture(),
     seen = [];
   const spawn = (cmd, args, opts) => {
@@ -404,11 +408,129 @@ test("CLI roles retain medium reasoning and read-only review", async () => {
   assert.deepEqual(seen, [
     ["gpt-6-astra", 'model_reasoning_effort="medium"', "workspace-write"],
     ["gpt-5.6-terra", 'model_reasoning_effort="medium"', "workspace-write"],
-    ["gpt-5.6-sol", 'model_reasoning_effort="medium"', "read-only"],
+    ["gpt-5.6-sol", 'model_reasoning_effort="medium"', "workspace-write"],
   ]);
   const untracked = execFileSync("git", ["status", "--porcelain"], {
     cwd: f.root,
     encoding: "utf8",
   });
   assert(!untracked.includes(".codex-delegate"));
+});
+
+
+test("all baseline behavior passes skips worker through declared event", async () => {
+  const f = await fixture({ baselinePass: true });
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, spawn: fakeSpawn(f) });
+  assert.equal(s.phase, "complete", s.reason);
+  assert.equal(s.attempt, 0);
+  assert.deepEqual(s.agents.map((a) => a.role), ["author", "reviewer"]);
+  assert.equal(transition("baseline", "BASELINE_SATISFIED"), "verifying");
+});
+
+test("verification environment failure retries failed checks without another worker", async () => {
+  const f = await fixture();
+  let checks = 0;
+  const injected = (cmd, args, opts) => {
+    if (!args.includes("-m") && ++checks === 2)
+      return nativeSpawn(process.execPath, ["-e", 'console.error("EACCES cache blocked");process.exit(1)'], opts);
+    return fakeSpawn(f)(cmd, args, opts);
+  };
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, spawn: injected, maxAttempts: 1 });
+  assert.equal(s.phase, "blocked");
+  assert.equal(s.blockedPhase, "verifying");
+  assert.equal(s.verification[0].category, "environment");
+  assert.equal(s.attempt, 1);
+  const result = await resume({ run: s.run, retry: true, spawn: fakeSpawn(f) });
+  assert.equal(result.phase, "complete", result.reason);
+  assert.equal(result.agents.filter((a) => a.role === "worker").length, 1);
+});
+
+test('worker syntax errors request code repair rather than environment retry', async () => {
+  const f = await fixture(); let workers = 0;
+  const spawn = (cmd, args, opts) => {
+    const worker = args.includes('-m') && args[args.indexOf('-m') + 1] === 'gpt-5.6-terra';
+    return fakeSpawn(f, worker && workers++ === 0 ? 'syntax' : 'normal')(cmd, args, opts);
+  };
+  const result = await start({ workspace: f.root, requestFile: f.requestFile, spawn });
+  assert.equal(result.phase, 'complete', result.reason);
+  assert.equal(workers, 2);
+  assert.equal(result.checkResults.some(check => !check.baseline && check.category === 'behavior'), true);
+});
+
+test("review environment repair resumes only reviewer with intact contract", async () => {
+  const f = await fixture();
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, spawn: fakeSpawn(f, "review-env") });
+  assert.equal(s.blockedPhase, "reviewing");
+  assert.equal(s.blockedCategory, "environment");
+  assert.equal(s.nonRetryable, undefined);
+  const result = await resume({ run: s.run, retry: true, spawn: fakeSpawn(f) });
+  assert.equal(result.phase, "complete", result.reason);
+  assert.equal(result.contractFileHash, s.contractFileHash);
+  assert.deepEqual(result.agents.map((a) => a.role), ["author", "worker", "reviewer", "reviewer"]);
+});
+
+test("revision snapshots historical red baseline and skips already completed implementation", async () => {
+  const f = await fixture();
+  const prior = await start({ workspace: f.root, requestFile: f.requestFile, spawn: fakeSpawn(f, "review-contract") });
+  // The new author accurately describes current behavior as passing.
+  const revisedBin = readFileSync(f.bin, "utf8").replace("baseline:'fail'", "baseline:'pass'");
+  writeFileSync(f.bin, revisedBin);
+  const revision = await start({ workspace: f.root, requestFile: f.requestFile, revisionOf: prior.run, spawn: fakeSpawn(f) });
+  assert.equal(revision.phase, "complete", revision.reason);
+  assert.equal(revision.attempt, 0);
+  assert.deepEqual(revision.agents.map((a) => a.role), ["author", "reviewer"]);
+  const snapshot = readFileSync(revision.revisionSnapshot.path, "utf8");
+  assert.equal(JSON.parse(snapshot).state.baseline[0].code, 1);
+  assert.match(JSON.parse(snapshot).files[prior.baseline[0].logFile], /BASE FAIL/);
+  writeFileSync(prior.baseline[0].logFile, "rewritten");
+  assert.equal(readFileSync(revision.revisionSnapshot.path, "utf8"), snapshot);
+  assert.equal((await status(revision.run)).phase, "complete");
+  const prompt = readFileSync(path.join(revision.agents[0].dir, "prompt.txt"), "utf8");
+  assert.match(prompt, /legitimately remain baseline=pass/);
+});
+
+
+for (const changed of [false, true]) test(`verification retry ${changed ? "invalidates passes after code change" : "reuses unchanged passed checks"}`, async () => {
+  const f = await fixture({ secondCheck: true });
+  const counts = { C1: 0, C2: 0 };
+  const injected = (cmd, args, opts) => {
+    if (!args.includes("-m")) {
+      const id = args.includes("C2") ? "C2" : "C1";
+      counts[id]++;
+      if (id === "C2" && counts[id] === 2)
+        return nativeSpawn(process.execPath, ["-e", 'console.error("EPERM cache");process.exit(1)'], opts);
+    }
+    return fakeSpawn(f)(cmd, args, opts);
+  };
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, spawn: injected });
+  assert.equal(s.blockedPhase, "verifying");
+  if (changed) writeFileSync(path.join(f.root, "app.mjs"), "export const app = 2;");
+  const result = await resume({ run: s.run, retry: true, spawn: injected });
+  assert.equal(result.phase, "complete", result.reason);
+  assert.deepEqual(counts, { C1: changed ? 3 : 2, C2: 3 });
+  assert.equal(result.attempt, 1);
+});
+
+test("reviewer may create untracked cache but cannot edit frozen tests", async () => {
+  const f = await fixture();
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, spawn: fakeSpawn(f, "review-cache") });
+  assert.equal(s.phase, "complete", s.reason);
+  assert(existsSync(path.join(f.root, ".cache/result")));
+  const f2 = await fixture();
+  const blocked = await start({ workspace: f2.root, requestFile: f2.requestFile, spawn: fakeSpawn(f2, "review-test") });
+  assert.equal(blocked.phase, "blocked");
+  assert.match(blocked.reason, /workspace changed|frozen test changed/);
+});
+
+test("model handoff omits repository fingerprint entries", async () => {
+  const f = await fixture();
+  const s = await start({ workspace: f.root, requestFile: f.requestFile, spawn: fakeSpawn(f) });
+  for (const agent of s.agents) {
+    const handoff = JSON.parse(readFileSync(path.join(agent.dir, "handoff.json"), "utf8"));
+    assert.equal(handoff.workspaceTree, undefined);
+    assert(!JSON.stringify(handoff).includes('"entries"'));
+    const prompt = readFileSync(path.join(agent.dir, "prompt.txt"), "utf8");
+    assert.match(prompt, /handoff.json/);
+    assert.match(prompt, /Never read state.json/);
+  }
 });

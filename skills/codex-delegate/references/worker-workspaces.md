@@ -1,6 +1,6 @@
 # Reuse worker workspaces
 
-Create at most two worker checkouts initially, one per concurrently editing worker. This preparation helper does not add parallel execution to the orchestrator.
+Create worker checkouts on demand. This helper prepares and reuses a checkout; the [dependency queue](dependency-queue.md) schedules up to two active lanes and preserves per-task worktrees across repairs.
 
 ```sh
 node ~/.codex/skills/codex-delegate/runtime/worker-workspace.mjs \

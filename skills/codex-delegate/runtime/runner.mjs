@@ -107,11 +107,13 @@ const SNAPSHOT_EXCLUSIONS = new Set([
   "coverage",
   "dist",
   ".cache",
+  "tsconfig.tsbuildinfo",
 ]);
 function ignoredSourceFiles(root, dir = root, result = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (SNAPSHOT_EXCLUSIONS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
+    if (path.relative(root, full) === path.join('.codex', 'state')) continue;
     if (entry.isDirectory()) ignoredSourceFiles(root, full, result);
     else if (entry.isFile() || entry.isSymbolicLink())
       result.push(path.relative(root, full));
@@ -119,6 +121,7 @@ function ignoredSourceFiles(root, dir = root, result = []) {
   return result;
 }
 function tree(root) {
+  const tracked = new Set(git(root, ["ls-files", "-z", "--cached"]).split("\0").filter(Boolean));
   const files = [
     ...new Set([
       ...git(root, [
@@ -134,6 +137,7 @@ function tree(root) {
     ]),
   ]
     .filter((f) => f !== ".codex-delegate" && !f.startsWith(".codex-delegate/"))
+    .filter((f) => tracked.has(f) || !f.split(path.sep).some((part) => SNAPSHOT_EXCLUSIONS.has(part)))
     .sort();
   const entries = {};
   for (const f of files) {
@@ -528,7 +532,7 @@ function schema(role) {
     status: { type: "string", enum: ["pass", "changes_requested", "blocked"] },
     nextAction: {
       type: "string",
-      enum: ["none", "repair", "contract_revision", "blocked"],
+      enum: ["none", "repair", "contract_revision", "environment_repair", "blocked"],
     },
     requirements: array(
       object({
@@ -550,8 +554,10 @@ function phasePrompt(state, role, dir) {
     : "";
   if (state.contextArtifacts?.length)
     scope += `\nFixed context artifacts (verify before relying on them):\n${state.contextArtifacts.map((a) => `${a.label}: ${a.path} (SHA-256 ${a.hash})`).join("\n")}`;
+  if (state.revisionOf && role === "author")
+    scope += `\nThis is a contract revision. Read the immutable prior evidence snapshot ${state.revisionSnapshot.path}. Preserve previously fixed behavior; its checks may legitimately remain baseline=pass on the current implementation. Add genuinely missing checks without recreating earlier failures or reverting implementation. Historical red baseline evidence remains in the snapshot; current baseline describes this tree.`;
   const visual = state.visualEvidence;
-  return `${guide}\n\nRun ${state.id}. Workspace ${state.workspace}. Phase output directory ${dir}.\nOriginal request:\n${state.request}\n\n${scope}\n\nRead ${path.join(state.run, "state.json")} for runner evidence. Contract: ${path.join(state.run, "contract.json")}. Return JSON matching schema. Never edit runner state, contract.json, request.txt, or other attempts. Do not commit, push, deploy, spawn subagents, or invoke codex-delegate recursively.\n${role === "author" ? `Create acceptance tests only in workspace test locations. Do not fix production. Return executable checks with exact markers and exact implementationPaths. ${state.workflow === "performance" ? "Return nonempty performanceMeasurements. Each measurement links one check and requires that check to print exactly one CODEX_DELEGATE_METRIC <id> <finite-number> <unit> line in baseline and final runs." : "Return performanceMeasurements as an empty array."}` : ""}\n${role === "worker" ? `Frozen tests must not change. Only implementationPaths from contract may change. ${visual ? `Produce post-implementation runtime screenshot at ${visual.path} for route ${visual.route} through executable verification. Valid PNG or JPEG. Create after ${visual.implementationCheckpoint.at}.` : ""}` : ""}\n${role === "reviewer" ? `Workspace and tests are read-only. Read runner evidence and original request. ${visual ? `Read ${path.join(state.run, "evidence", "runtime-visual.json")}, inspect ${visual.path}, verify SHA-256 ${visual.sha256}.` : ""}${state.performance ? ` Read ${state.performance.path}.` : ""} Every required ID needs direct evidence.` : ""}`;
+  return `${guide}\n\nRun ${state.id}. Workspace ${state.workspace}. Phase output directory ${dir}.\nOriginal request:\n${state.request}\n\n${scope}\n\nRead ${path.join(dir, "handoff.json")} for compact runner evidence. Never read state.json; it contains the full filesystem fingerprint, not additional task context. Contract: ${path.join(state.run, "contract.json")}. Return JSON matching schema. Never edit runner state, contract.json, request.txt, or other attempts. Do not commit, push, deploy, spawn subagents, or invoke codex-delegate recursively.\n${role === "author" ? `Create acceptance tests only in workspace test locations. Do not fix production. Return executable checks with exact markers and exact implementationPaths. ${state.workflow === "performance" ? "Return nonempty performanceMeasurements. Each measurement links one check and requires that check to print exactly one CODEX_DELEGATE_METRIC <id> <finite-number> <unit> line in baseline and final runs." : "Return performanceMeasurements as an empty array."}` : ""}\n${role === "worker" ? `Frozen tests must not change. Only implementationPaths from contract may change. ${visual ? `Produce post-implementation runtime screenshot at ${visual.path} for route ${visual.route} through executable verification. Valid PNG or JPEG. Create after ${visual.implementationCheckpoint.at}.` : ""}` : ""}\n${role === "reviewer" ? `Workspace-write permits test caches, but you must never edit source, acceptance tests, contract, or runner artifacts. This is an instruction and fingerprint enforcement, not an OS restriction to cache files. Run exact acceptance argv in the inherited subprocess environment used by baseline preflight. Read runner evidence and original request. For EPERM/EACCES, missing modules, or setup failures return nextAction=environment_repair; never contract_revision for environment failures. ${visual ? `Read ${path.join(state.run, "evidence", "runtime-visual.json")}, inspect ${visual.path}, verify SHA-256 ${visual.sha256}.` : ""}${state.performance ? ` Read ${state.performance.path}.` : ""} Every required ID needs direct evidence.` : ""}`;
 }
 function recordIntegrity(state) {
   unchanged(state);
@@ -579,7 +585,8 @@ async function processRun(state, argv, input, logFile, options, markers = []) {
     pendingLine = "",
     threadId,
     turnComplete = false,
-    setupFailure = false;
+    setupFailure = false,
+    environmentFailure = false;
   let child,
     timedOut = false,
     interrupted = false,
@@ -608,8 +615,9 @@ async function processRun(state, argv, input, logFile, options, markers = []) {
         markers.forEach((marker, i) => {
           if (chunk.includes(marker)) found[i] = true;
         });
+        if (/\bEPERM\b|\bEACCES\b|Permission denied|operation not permitted|command not found/i.test(chunk)) environmentFailure = true;
         if (
-          /Cannot find module|ERR_MODULE_NOT_FOUND|SyntaxError:|command not found|No test files found|No tests found|# tests 0\b|0 passing/i.test(
+          /\bEPERM\b|\bEACCES\b|Permission denied|operation not permitted|setupFailure|Cannot find module|ERR_MODULE_NOT_FOUND|SyntaxError:|command not found|No test files found|No tests found|# tests 0\b|0 passing/i.test(
             chunk,
           )
         )
@@ -660,7 +668,11 @@ async function processRun(state, argv, input, logFile, options, markers = []) {
       });
       child.on("error", (e) => {
         clean();
-        reject(e);
+        if (["ENOENT", "EPERM", "EACCES"].includes(e.code)) {
+          setupFailure = true;
+          environmentFailure = true;
+          fs.writeSync(logFd, `${e.code}: ${e.message}\n`);
+        } else reject(e);
       });
       child.on("close", (code, signalName) => {
         clean();
@@ -671,6 +683,7 @@ async function processRun(state, argv, input, logFile, options, markers = []) {
           interrupted,
           found,
           setupFailure,
+          environmentFailure,
           threadId,
           turnComplete,
           logFile,
@@ -694,6 +707,16 @@ async function call(state, role, options) {
   const schemaFile = path.join(dir, "schema.json"),
     output = path.join(dir, "result.json");
   atomic(schemaFile, schema(role));
+  atomic(path.join(dir, "handoff.json"), {
+    runId: state.id, phase: state.phase, attempt: state.attempt,
+    contractPath: state.contract ? path.join(state.run, "contract.json") : null,
+    baseline: state.baseline ?? [], verification: state.verification ?? [],
+    implementation: state.implementation ?? null, review: state.review ?? null,
+    revisionSnapshot: state.revisionSnapshot ?? null,
+    allowedImplementationPaths: state.contract?.implementationPaths ?? state.scope?.implementationPaths ?? [],
+    frozenTestPaths: Object.keys(state.frozenTests ?? {}),
+    integrityPath: state.integrity ? path.join(state.run, "integrity.json") : null,
+  });
   const prompt = phasePrompt(state, role, dir);
   fs.writeFileSync(path.join(dir, "prompt.txt"), prompt, { mode: 0o600 });
   const argv = [
@@ -706,7 +729,7 @@ async function call(state, role, options) {
     "-c",
     'model_reasoning_effort="medium"',
     "-s",
-    role === "reviewer" ? "read-only" : "workspace-write",
+    "workspace-write",
     "--json",
     "--output-schema",
     schemaFile,
@@ -750,7 +773,15 @@ async function call(state, role, options) {
 async function checks(state, baseline, options) {
   const before = unchanged(state),
     results = [];
+  const environment = { node: process.version, platform: process.platform, arch: process.arch,
+    env: Object.entries(process.env).sort(([a], [b]) => a.localeCompare(b)),
+    modules: ['node_modules/.modules.yaml', 'node_modules/.pnpm/lock.yaml'].map(file => {
+      const full = path.join(state.workspace, file); return [file, fs.existsSync(full) ? fileHash(full) : null];
+    }) };
+  const evidenceKey = hash(JSON.stringify({ workspace: before.hash, head: before.head, environment, contract: state.contractFileHash, tests: state.frozenTests }));
   for (const check of state.contract.checks) {
+    const prior = !baseline && state.verification?.find((result) => result.id === check.id && result.ok && result.evidenceKey === evidenceKey);
+    if (prior) { results.push(prior); continue; }
     const file = path.join(
       state.run,
       "evidence",
@@ -776,8 +807,11 @@ async function checks(state, baseline, options) {
       baseline,
       marker,
       workspaceHash: before.hash,
+      evidenceKey,
+      category: result.environmentFailure ? "environment" : ok ? "passed" : "behavior",
       ...result,
     });
+    if (!baseline) state.verification = [...results, ...(state.verification ?? []).filter((prior) => !results.some((result) => result.id === prior.id))];
     state.checkResults.push(results.at(-1));
     persist(state, "check-result", { check: results.at(-1) });
     ensure(
@@ -828,7 +862,12 @@ async function advance(state, options) {
       "baseline failed for wrong reason or expected marker absent",
     );
     state.baseline = result;
-    move(state, "BASELINE_OK");
+    // Performance improvements and fresh runtime screenshots still require implementation work.
+    const alreadySatisfied = !state.visualEvidence && state.workflow !== "performance" &&
+      state.contract.checks.every((check) => check.baseline === "pass") &&
+      result.every((check) => check.code === 0 && fs.readFileSync(check.logFile, "utf8").includes(state.contract.checks.find((c) => c.id === check.id).passMarker));
+    if (alreadySatisfied) state.implementation = { status: 'not-needed', reason: 'current baseline satisfies all executable acceptance checks', workspaceHash: state.workspaceTree.hash };
+    move(state, alreadySatisfied ? "BASELINE_SATISFIED" : "BASELINE_OK");
   } else if (state.phase === "implementing") {
     ensure(
       state.attempt < state.maxAttempts,
@@ -864,6 +903,10 @@ async function advance(state, options) {
   } else if (state.phase === "verifying") {
     const result = await checks(state, false, options);
     state.verification = result;
+    if (result.some((x) => x.category === "environment")) {
+      state.blockedCategory = "environment";
+      throw new Error("verification environment failure; repair environment and retry verifying");
+    }
     if (!result.every((x) => x.ok)) move(state, "REPAIR");
     else {
       recordVisualEvidence(state);
@@ -895,9 +938,13 @@ async function advance(state, options) {
     );
     state.review = review;
     ensure(
-      ["pass", "changes_requested"].includes(review.status),
+      ["pass", "changes_requested", "blocked"].includes(review.status),
       "invalid review status",
     );
+    if (review.nextAction === "environment_repair") {
+      state.blockedCategory = "environment";
+      throw new Error("review environment failure; repair environment and retry reviewing");
+    }
     if (review.nextAction === "contract_revision") {
       state.blockedPhase = "reviewing";
       state.nonRetryable = true;
@@ -1063,6 +1110,26 @@ export async function start({ workspace, requestFile, scopeFile, ...options }) {
     const models = { ...MODELS, ...(options.models ?? {}), reviewer: MODELS.reviewer };
     ensure(Object.values(models).every(text), "invalid model assignments");
     const workflow = options.workflow ?? "simple-fix";
+    let revisionSnapshot;
+    if (options.revisionOf) {
+      const prior = load(options.revisionOf);
+      ensure(prior.workspace === workspace && !prior.inFlight, "revision requires the same workspace and no in-flight command");
+      const evidence = { priorRun: prior.run, capturedAt: stamp(), state: {
+        id: prior.id, request: prior.request, phase: prior.phase, reason: prior.reason,
+        contract: prior.contract, contractFileHash: prior.contractFileHash, frozenTests: prior.frozenTests,
+        baseline: prior.baseline, verification: prior.verification, implementation: prior.implementation, review: prior.review,
+        workspaceHash: prior.workspaceTree.hash, head: prior.workspaceTree.head,
+      }, files: {} };
+      // Copy evidence bytes now; later writes to the prior run cannot rewrite history.
+      for (const file of [path.join(prior.run, "contract.json"), path.join(prior.run, "acceptance-hashes.json"), ...(prior.checkResults ?? []).map((check) => check.logFile)])
+        if (fs.existsSync(file)) evidence.files[file] = fs.readFileSync(file, "utf8");
+      for (const file of Object.keys(prior.frozenTests ?? {}))
+        if (fs.existsSync(path.join(workspace, file))) evidence.files[file] = fs.readFileSync(path.join(workspace, file), "utf8");
+      const snapshotPath = path.join(run, "revision-evidence.json");
+      atomic(snapshotPath, evidence);
+      fs.chmodSync(snapshotPath, 0o400);
+      revisionSnapshot = { label: "prior revision evidence", path: snapshotPath, hash: hash(fs.readFileSync(snapshotPath)) };
+    }
     const state = {
       version: VERSION,
       id: path.basename(run),
@@ -1079,7 +1146,9 @@ export async function start({ workspace, requestFile, scopeFile, ...options }) {
       reviewRequired: true,
       workflow,
       visualEvidence: options.visualEvidence,
-      contextArtifacts: options.contextArtifacts,
+      revisionOf: options.revisionOf ? path.resolve(options.revisionOf) : undefined,
+      revisionSnapshot,
+      contextArtifacts: [...(options.contextArtifacts ?? []), ...(revisionSnapshot ? [revisionSnapshot] : [])],
       agents: [],
       checkResults: [],
       workspaceTree: tree(workspace),
@@ -1106,6 +1175,8 @@ export async function start({ workspace, requestFile, scopeFile, ...options }) {
       workflow: state.workflow,
       visualEvidence: state.visualEvidence,
       contextArtifacts: state.contextArtifacts,
+      revisionOf: state.revisionOf,
+      revisionSnapshot: state.revisionSnapshot,
     };
     fs.writeFileSync(path.join(run, "request.txt"), state.request, {
       mode: 0o600,
@@ -1127,6 +1198,11 @@ export async function resume({ run, retry = false, ...options }) {
       !state.inFlight,
       "unresolved in-flight command; inspect child and reconcile files before starting a new run",
     );
+    if (retry && state.phase === "blocked" && state.blockedPhase === "verifying" && state.blockedCategory === "environment") {
+      validateContextArtifacts(state);
+      // Explicit retry may follow a scoped source repair; frozen tests still cannot change.
+      acceptPartialWorker(state);
+    }
     unchanged(state);
     if (state.phase === "complete") return state;
     if (state.phase === "blocked") {
@@ -1199,6 +1275,7 @@ if (
         workspace: value("--workspace"),
         requestFile: value("--request-file"),
         scopeFile: value("--scope-file"),
+        revisionOf: value("--revision-of"),
         codexBin: value("--codex-bin"),
         onRunCreated: (run) => console.log(run),
       });

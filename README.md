@@ -24,6 +24,8 @@ npm test
 
 See [`skills/codex-delegate/SKILL.md`](skills/codex-delegate/SKILL.md) for invocation and runtime boundaries.
 
+Independent implementation tasks can use a [dependency queue](skills/codex-delegate/references/dependency-queue.md) with up to two active lanes. Each lane keeps an isolated worktree across retries; successful patches are reused only while their evidence remains valid. The integrated checkout must pass combined checks and a fresh Sol review. Environment failures resume verification or review without restarting investigation; contract revisions preserve prior failure evidence and already-fixed implementation.
+
 ## Legacy Poteto Mode
 
 A self-contained Codex port of Lauren Tan's [pstack](https://github.com/cursor/plugins/tree/main/pstack), including **poteto-mode**, all **45 upstream skills**, **23 playbooks**, **21 principles**, both agent prompts, and the original PR watcher and orchestrator tools.

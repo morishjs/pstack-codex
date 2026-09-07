@@ -29,7 +29,7 @@ export function dependencyKey(workspace, versions) {
 }
 
 // A worker is reused within one task. Different baselines get different worker IDs.
-export function prepareWorker({ source, worker, ref = 'HEAD', probeModule, run = command }) {
+export function prepareWorker({ source, worker, ref = 'HEAD', probeModule, directory: suppliedDirectory, run = command }) {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(worker ?? '')) throw new Error('worker must be a simple identifier');
   if (!probeModule || probeModule.startsWith('.') || path.isAbsolute(probeModule)) throw new Error('probe-module must name an installed root dependency');
   source = fs.realpathSync(source);
@@ -38,7 +38,8 @@ export function prepareWorker({ source, worker, ref = 'HEAD', probeModule, run =
   fs.mkdirSync(root, { recursive: true });
   const ignore = path.join(root, '.gitignore');
   if (!fs.existsSync(ignore)) fs.writeFileSync(ignore, '*\n');
-  const directory = path.join(root, 'workers', worker);
+  if (suppliedDirectory && !path.isAbsolute(suppliedDirectory)) throw new Error('worker directory must be absolute');
+  const directory = suppliedDirectory ?? path.join(root, 'workers', worker);
   fs.mkdirSync(directory, { recursive: true });
   const lock = path.join(directory, 'prepare.lock');
   try { fs.mkdirSync(lock); } catch (error) { if (error.code === 'EEXIST') throw new Error('worker preparation already locked; inspect owner before recovery'); throw error; }

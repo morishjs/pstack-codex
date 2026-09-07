@@ -15,6 +15,8 @@ Create a request file. Optionally provide a scope contract with `allowedImplemen
 
 For isolated code workers, prepare a reusable checkout as described in [worker-workspaces.md](references/worker-workspaces.md). Use the returned workspace with the orchestrator. Reuse the same worker ID for repairs; read-only investigation uses the existing checkout without installation.
 
+For independent API/Web or other disjoint implementation lanes, use the [dependency queue](references/dependency-queue.md) with `--plan-file`. Establish shared contracts as predecessors. The queue runs up to two ready lanes, preserves successful work across retries, then verifies the integrated artifact with Sol.
+
 ```bash
 node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \
   --workspace /absolute/workspace \
@@ -32,7 +34,7 @@ Use `status --run /absolute/run` to inspect a run. Use `resume --run /absolute/r
 
 Classification grants only `read-only` or `local-workspace` actions. Investigation workflow is read-only. A PR-maintenance workflow permits local workspace changes only; it never authorizes commit, push, merge, deploy, publish, messages, account changes, or other external writes.
 
-The runner freezes acceptance tests and contracts, constrains changed paths, records workspace integrity, and uses a fresh read-only reviewer. A failed verification or review either repairs within the frozen contract or blocks. A contract revision requires a new run.
+The runner freezes acceptance tests and contracts, constrains changed paths, records workspace integrity, and uses a fresh Sol reviewer. Reviewers may execute cache-producing tests but must preserve source and contracts; post-review fingerprints enforce this. Environment failures retry verification or review only. Contract revisions preserve implementation and prior evidence without repeating investigation.
 
 UI workflows require a post-implementation PNG/JPEG at supplied path and route. Runner rejects stale, renamed, invalid, or review-drifted images and writes manifest. Required external verification blocks nested runner; do not relabel it as local evidence.
 
