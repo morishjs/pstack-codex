@@ -9,6 +9,7 @@ import tempfile
 
 from check_upstream import compare
 from install import install
+from sync_playbooks import verify as verify_playbook_sources
 
 ROOT = Path(__file__).resolve().parent
 BUNDLE = ROOT/'skills/poteto-mode'
@@ -20,6 +21,7 @@ def run(*args, cwd=None):
 
 
 def main():
+    verify_playbook_sources()
     manifest = json.loads((ROOT/'UPSTREAM.json').read_text())
     assert len({e['source'] for e in manifest['files']}) == len(manifest['files'])
     assert all((ROOT/e['target']).is_file() for e in manifest['files'])

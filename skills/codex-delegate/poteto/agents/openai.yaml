@@ -1,0 +1,4 @@
+interface:
+  display_name: "Poteto Mode for Codex"
+  short_description: "Full pstack workflows adapted for Codex"
+  default_prompt: "Use $poteto-mode to complete this task with the matching playbook and verify the result."

@@ -1,11 +1,11 @@
-# Runtime contract
+# Subordinate code runtime
 
-`runtime/orchestrator.mjs` is the public CLI. It creates a session under `<workspace>/.codex-delegate/sessions/`, invokes read-only classification, investigation, and design phases as needed, then hands code work to its internal nested runner.
+Use this executor only for a code substep of the selected playbook. It creates a session under `<workspace>/.codex-delegate/sessions/`, invokes read-only classification, investigation, and design phases as needed, then hands code work to its internal nested runner. New top-level tasks use `start --playbook` and the host-driven controller described in [playbook execution](playbook-execution.md).
 
 ## Commands
 
 ```bash
-node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \
+node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start --code-phase \
   --workspace ABS \
   --authority local-workspace \
   --request-file ABS \

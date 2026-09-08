@@ -1,7 +1,7 @@
 interface:
   display_name: "Codex Delegate"
-  short_description: "Route bounded work through evidence-gated autonomous delegation"
-  default_prompt: "Use $codex-delegate with one persistent lead session. Validate scope and existing user authority before dispatch, track implementation through completion or a concrete unresolved blocker, and finish with fresh Sol review and evidence. Starting a run is not completion."
+  short_description: "Execute complete Poteto playbooks through XState evidence gates"
+  default_prompt: "Use $codex-delegate: select a playbook, start its controller, and drive next/action/record through completion or a concrete unresolved blocker. Read the original clauses, execute real host tools, preserve linked child gates and existing authority. Use retained implementation context and fresh Sol final review. Starting a run is not completion."
 
 policy:
   allow_implicit_invocation: true

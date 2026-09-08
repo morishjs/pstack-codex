@@ -208,7 +208,11 @@ async function drive(state, options) {
   return state;
 }
 function load(run) { const state = readJson(path.join(path.resolve(run), "state.json")); ensure(state.version === VERSION && state.run === path.resolve(run), "run identity/version mismatch"); ensure(hash(fs.readFileSync(path.join(state.run, "request.txt"))) === state.requestHash, "request changed"); ensure(hash(fs.readFileSync(path.join(state.run, "config.json"))) === state.configHash, "run config changed"); if (state.scopeHash) ensure(hash(fs.readFileSync(state.scopeFile)) === state.scopeHash, 'scope changed'); return state; }
-export async function start({ workspace, requestFile, scopeFile, planFile, authority = 'read-only', runtimeVisualEvidenceFile, runtimeVisualRoute, policy, ...options }) {
+export async function start({ workspace, requestFile, scopeFile, planFile, playbook, grants, authority = 'read-only', runtimeVisualEvidenceFile, runtimeVisualRoute, policy, ...options }) {
+  if (playbook) {
+    const { startPlaybook } = await import('./playbook-controller.mjs');
+    return startPlaybook({ workspace, playbook, requestFile, grants: grants ?? [authority] });
+  }
   ensure(['read-only', 'local-workspace'].includes(authority), 'authority must be read-only or local-workspace');
   workspace = fs.realpathSync(workspace);
   let scopeInput;
@@ -236,6 +240,7 @@ export async function start({ workspace, requestFile, scopeFile, planFile, autho
   fs.writeFileSync(path.join(run, "request.txt"), state.request, { mode: 0o600 }); const config = { workspace, scopeFile, codexBin: state.codexBin, executionMode, authority }; atomic(path.join(run, "config.json"), config); state.configHash = hash(JSON.stringify(config, null, 2)); persist(state, "start"); options.onRunCreated?.(run); return drive(state, options);
 }
 export async function status(run) {
+  if (readJson(path.join(path.resolve(run), 'state.json')).playbook) return (await import('./playbook-controller.mjs')).statusPlaybook(run);
   if (readJson(path.join(path.resolve(run), 'state.json')).session) return (await import('./queue-session.mjs')).queueStatus(run);
   const state = load(run); if (state.nestedRun) state.nestedStatus = await runnerStatus(state.nestedRun);
   if (state.phase === 'complete' && state.nestedStatus && state.nestedStatus.phase !== 'complete') return { ...state, phase: 'blocked', reason: state.nestedStatus.reason ?? 'nested evidence incomplete' };
@@ -247,12 +252,14 @@ export async function waitUntilSettled({ run, timeoutMs = 60000, pollMs = 1000, 
   const deadline = Date.now() + timeoutMs;
   while (true) {
     const state = await readStatus(run);
+    ensure(state.kind !== 'playbook' || ['complete', 'blocked'].includes(state.phase), 'host-driven playbook needs next/action/record; wait does not execute its steps');
     const settled = ['complete', 'blocked'].includes(state.phase);
     if (settled || Date.now() >= deadline) return { run, phase: state.phase, reason: state.reason, completed: state.phase === 'complete', timedOut: !settled };
     await new Promise(resolve => setTimeout(resolve, Math.min(pollMs, Math.max(0, deadline - Date.now()))));
   }
 }
 export async function resume({ run, retry = false, ...options }) {
+  if (readJson(path.join(path.resolve(run), 'state.json')).playbook) return (await import('./playbook-controller.mjs')).resumePlaybook(run);
   if (readJson(path.join(path.resolve(run), 'state.json')).session) return (await import('./queue-session.mjs')).resumeQueue({ session: run, retry, ...options });
   const state = load(run);
   if (state.phase === 'complete') { if (state.nestedRun) { const nested = await runnerStatus(state.nestedRun); ensure(nested.phase === 'complete', nested.reason ?? 'nested evidence stale'); } return state; }
@@ -265,10 +272,25 @@ export async function resume({ run, retry = false, ...options }) {
 }
 async function main() {
   try { const [command, ...args] = process.argv.slice(2); const value = (key) => cliValue(args, key); let state;
+    if (command === 'playbooks') { const { PLAYBOOKS } = await import('./playbook-catalog.mjs'); console.log(JSON.stringify(Object.entries(PLAYBOOKS).map(([id,p]) => ({id,title:p.title,entry:p.entry})),null,2)); return; }
+    if (command === 'start' && value('--playbook')) {
+      ensure(value('--workspace') && value('--request-file'), 'start needs --workspace and --request-file');
+      ensure(!args.includes('--code-phase') && !['--scope-file','--plan-file','--codex-bin','--execution-mode','--runtime-visual-evidence','--runtime-visual-route'].some(key => args.includes(key)), 'playbook controller cannot accept code-executor options; include task scope in the request and pass executor options only to its code substep');
+      const { nextStep } = await import('./playbook-controller.mjs');
+      const created = await start({ workspace: value('--workspace'), requestFile: value('--request-file'), playbook: value('--playbook'), grants: value('--grants')?.split(','), authority: value('--authority') });
+      const current = nextStep(created.run); console.log(JSON.stringify(current,null,2)); if (current.phase === 'blocked') process.exitCode = 1; return;
+    }
+    if (['next','record','child','retry','pause'].includes(command)) {
+      const controller = await import('./playbook-controller.mjs');
+      const run = value('--run');
+      const result = command === 'next' ? controller.nextStep(run) : command === 'record' ? controller.recordStep({ ...readJson(value('--receipt-file')), run }) : command === 'child' ? controller.startChild({run,playbook:value('--playbook')}) : command === 'pause' ? controller.pausePlaybook({ ...(value('--receipt-file') ? readJson(value('--receipt-file')) : {}), run, reason:value('--reason') }) : controller.retryStep({run,to:value('--to'),reason:value('--reason')});
+      console.log(JSON.stringify(result,null,2)); if (result.phase === 'blocked') process.exitCode = 1; return;
+    }
+    if (command === 'start') ensure(args.includes('--code-phase') || value('--plan-file'), 'select --playbook from playbooks; --code-phase is only the subordinate code executor');
     if (command === "start") { ensure(value("--workspace") && value("--request-file"), "start needs --workspace and --request-file"); state = await start({ workspace: value("--workspace"), requestFile: value("--request-file"), scopeFile: value("--scope-file"), authority: value('--authority'), planFile: value('--plan-file'), executionMode: value('--execution-mode'), concurrency: Number(value('--concurrency') ?? 2), runtimeVisualEvidenceFile: value("--runtime-visual-evidence"), runtimeVisualRoute: value("--runtime-visual-route"), codexBin: value("--codex-bin"), onRunCreated: (run) => console.log(run) }); }
     else if (command === 'wait') state = await waitUntilSettled({ run: value('--run'), timeoutMs: Number(value('--timeout-ms') ?? 60000) });
     else if (command === "status") state = await status(value("--run")); else if (command === "resume") state = await resume({ run: value("--run"), retry: args.includes("--retry"), recoverInterrupted: args.includes('--recover-interrupted') }); else throw new Error("usage: start --workspace ABS --request-file ABS [--authority read-only|local-workspace] [--scope-file ABS] [--plan-file JSON --concurrency 1|2] [--runtime-visual-evidence FILE --runtime-visual-route ROUTE] [--codex-bin ABS] | status --run ABS | wait --run ABS [--timeout-ms 60000] | resume --run ABS [--retry] [--recover-interrupted]");
-    console.log(JSON.stringify({ run: state.run ?? state.session, phase: state.phase, reason: state.reason, completed: state.phase === 'complete', ...(state.timedOut !== undefined ? {timedOut: state.timedOut} : {}) })); if (state.phase === "blocked") process.exitCode = 1; else if (command === 'wait' && state.timedOut) process.exitCode = 2;
+    console.log(JSON.stringify(state.kind === 'playbook' ? state : { run: state.run ?? state.session, phase: state.phase, reason: state.reason, completed: state.phase === 'complete', ...(state.timedOut !== undefined ? {timedOut: state.timedOut} : {}) })); if (state.phase === "blocked") process.exitCode = 1; else if (command === 'wait' && state.timedOut) process.exitCode = 2;
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

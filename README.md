@@ -1,6 +1,6 @@
 # Codex Delegate for Codex
 
-The primary skill is `codex-delegate`, an XState-based autonomous workflow for evidence-gated Codex delegation. It incorporates Poteto's investigation, design, verification, and context-discipline principles into its routed workflows.
+The primary skill is `codex-delegate`. All 23 Poteto playbooks have separate XState step graphs, backed by the complete bundled source library. The host performs each action with native tools; the controller gates step order, authority, evidence hashes, linked child completion, and declared assertions.
 
 ## Codex Delegate
 
@@ -10,7 +10,9 @@ Install it:
 python3 install.py --skill codex-delegate
 ```
 
-`codex-delegate` classifies investigation, simple fix, bug fix, feature, refactor, UI, performance, PR maintenance, and skill work. A persistent lead thread handles investigation, acceptance, implementation, and repair. Low-risk/low-complexity work defaults to Terra; other work defaults to Sol. Final Sol review always uses a fresh session. Astra is reserved for policy escalation. Generic routes remain hypotheses until repeated holdout evaluation supports promotion; evaluation never skips Sol review.
+Start new work with `orchestrator.mjs playbooks`, then `start --playbook ID`. Drive `next`, perform the actual action, and `record` its evidence. Investigation, prototype, planning, evaluation, monitoring, shipping, and cleanup retain distinct source conditions and completion boundaries. Complex initial planning uses Astra medium; implementation retains Terra/Sol context; independent final review uses fresh Sol medium. The existing nine-route code executor remains available as `start --code-phase` for code substeps and legacy runs.
+
+`python3 sync_playbooks.py --check` verifies the bundled source against all tracked original files. Deterministic tests validate machine behavior; they do not prove that every playbook has executed real models, browsers, GitHub operations, or production actions.
 
 UI workflows require a post-implementation PNG/JPEG path and route. Performance workflows require numeric baseline/current metric evidence. The runtime records phase context, frozen contracts, hashes, verification output, and recovery state under the target workspace's ignored `.codex-delegate/` directory.
 

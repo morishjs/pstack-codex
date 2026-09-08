@@ -1,54 +1,41 @@
 ---
 name: codex-delegate
-description: Route a bounded workspace request through Codex Delegate's autonomous classifier, workflow registry, dynamic model policy, evidence gates, and repair/block loop. Use when a task needs an evidence-backed investigation, fix, feature, UI change, performance change, refactor, PR maintenance, or skill change without granting remote mutations.
+description: Execute the complete Poteto playbook library through per-playbook XState gates, retained task context, explicit authority, and evidence-backed completion. Use for investigation, implementation, planning, review, evaluation, PR lifecycle, monitoring, and scoped cleanup.
 ---
 
 # Codex Delegate
 
-Use one lead session to retain the task's context across investigation, acceptance, implementation, and repair. The orchestrator still controls phase boundaries and evidence gates. Only final Sol review starts a fresh independent session. Delegate narrow independent tasks through the queue when their size justifies separate workers.
+Select a playbook for every new task. All 23 bundled Poteto playbooks have their own guarded XState step graph. Read [execution policy](references/playbook-execution.md) and the selected original playbook under [the source guide](poteto/GUIDE.md). Do not replace the selected playbook with the generic code executor. The complete source and supporting tools are bundled; `poteto-manifest.json` pins their original bytes.
 
-Read [references/runtime.md](references/runtime.md) before invoking it. Read [references/workflows.md](references/workflows.md) for workflow-specific phases and [references/model-routing.md](references/model-routing.md) for routing and promotion rules.
+## Select and start
 
-## Run
-
-Create a request file. Optionally provide a scope contract with `allowedImplementationPaths`, `allowedTestPaths`, and `requiredRequirementIds`.
-
-Set `--authority local-workspace` when the existing user request authorizes implementation; use `read-only` for inspection. Do not ask again for authority already provided. This is a coordinator decision, not a classifier decision. Scope paths must be literal relative files or directories: use `apps/api/src/modules/payment`, not `apps/api/src/modules/payment/**`. Directories already include descendants. Scope syntax and write authority are validated before a model starts.
-
-For isolated code workers, prepare a reusable checkout as described in [worker-workspaces.md](references/worker-workspaces.md). Use the returned workspace with the orchestrator. Reuse the same worker ID for repairs; read-only investigation uses the existing checkout without installation.
-
-For independent API/Web or other disjoint implementation lanes, use the [dependency queue](references/dependency-queue.md) with `--plan-file`. Establish shared contracts as predecessors. The queue runs up to two ready lanes, preserves successful work across retries, then verifies the integrated artifact with Sol.
-
-A phase transition does not require a new model session. Reuse completed investigation and the lead's conversation. Read handoff.json for changes and verification outcomes, and reopen code only when relevant input changed or evidence is missing. Queue lanes each keep their own lead session; use one ordinary run for small fixes.
+Match the request to the catalog's entry descriptions. Explain/plan does not authorize implementation. Checking a PR is distinct from driving it; merge-ready is distinct from shipping. Preserve prototype, read-only, pause, and pickup exceptions.
 
 ```bash
+node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs playbooks
 node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \
-  --workspace /absolute/workspace \
-  --authority local-workspace \
-  --request-file /absolute/request.txt \
-  --scope-file /absolute/scope.json \
-  --runtime-visual-evidence /absolute/ui-evidence.png \
-  --runtime-visual-route /settings/profile
+  --workspace /absolute/workspace --playbook feature \
+  --request-file /absolute/request.md --grants read-only,local-workspace
 ```
 
-For `ui-change`, supply both visual flags. Evidence path is expected output path, not pre-captured proof. Omit both when irrelevant. Use `--codex-bin /absolute/codex` only when executable is not on `PATH`.
+Derive grants from existing user authority. Available grants are `read-only`, `local-workspace`, `remote-write`, `destructive`, and `scheduler`. Grant labels never expand the user's exact scope. Ordinary reversible worktree preparation is local workspace work. Missing authority blocks the affected action; never silently drop a required step or ask again for authority already provided.
 
-Use `status --run /absolute/run` to inspect a run. Use `resume --run /absolute/run --retry` only after resolving its recorded blocker. The nested runner is internal; do not start it as the normal workflow.
+## Drive the selected machine
 
-## Own the task through completion
+1. Call `next --run ABS`. Read the active original clause and its relevant linked guides. The returned generation identifies this attempt.
+2. Perform the active action with actual host tools. Use Astra medium for complex initial investigation, design, and acceptance; retained Terra/Sol context for implementation; fresh Sol medium for independent final review. Preserve source exceptions such as prototypes. A model recommendation is not evidence that the model ran.
+3. For required children, call `child --run ABS --playbook ID` and complete the linked child machine. Evaluate source conditions before choosing conditional alternatives.
+4. Write a receipt outside controller state files, then call `record --run ABS --receipt-file ABS`. Include `stepId`, `generation`, `outcome`, and `evidence: [{kind, path}]`; include `data` for declared assertions. Passed steps need all required evidence. `not-applicable` requires a conditional step, concrete reason, and `scope-exclusion` evidence. Report excluded scope separately.
+5. Continue until complete, explicit pause, or an unresolved concrete blocker. Use only declared `retry --run ABS --to STEP --reason TEXT` edges. Preserve completed work and evidence; do not restart or rewrite frozen artifacts to bypass a gate.
 
-Starting Delegate is not completion of an implementation request. Retain the tool execution session and await its output until the run completes or needs intervention. Use progress commentary while waiting; do not end the user turn merely because a run path was created or a status query succeeded.
+Starting a run is not completion. Keep ownership through terminal evidence. Answer status questions in commentary and continue. Use `pause` and `resume` to retain progress. Never promise a future wake without a real scheduler receipt.
 
-If the original execution handle is unavailable, use `orchestrator.mjs wait --run PATH --timeout-ms 60000`. A wait timeout returns `completed:false`, `timedOut:true`, exit 2; continue tracking rather than reporting completion. A blocked result returns exit 1; inspect the reason and resolve authorized environment, contract, or implementation issues at the failed stage. Stop only for verified completion, explicit user interruption, or a concrete blocker that cannot be resolved within existing authority. Report which case applies and preserve the run reference.
+The controller checks order, authority, child completion, hashes, and declared assertions. The host must inspect semantic correctness and actual tool results. A fabricated file or a successful unit test does not establish browser, model, forge, or production execution.
 
-Before the final implementation response, collect the terminal result and required verification evidence. If only a status question arrives during implementation, answer briefly in commentary and keep working. This skill instructs the coordinator's behavior; the runtime cannot prevent the host assistant from ending its turn.
+## Reuse the code executor
 
-## Authority and delivery
+For an implementation substep, use [the subordinate code runtime](references/runtime.md) with `start --code-phase` when its model policy matches the assigned work. Its completion supplies substep evidence; it cannot complete the parent playbook. Its legacy classifier/model policy remains separate from the host playbook policy. When a specific model is required, use the host's explicit model selection and record the actual assignment.
 
-Classification grants only `read-only` or `local-workspace` actions. Investigation workflow is read-only. A PR-maintenance workflow permits local workspace changes only; it never authorizes commit, push, merge, deploy, publish, messages, account changes, or other external writes.
+Scope paths are literal relative files/directories; `/**` is rejected before model execution. Set `--authority local-workspace` only from existing authorization. Read [worker workspaces](references/worker-workspaces.md) for reused installations and [dependency queues](references/dependency-queue.md) for independent lanes. Use the original bundled plan checker, watcher, and ledger tools when the selected source requires them.
 
-The runner freezes acceptance tests and contracts, constrains changed paths, records workspace integrity, and uses a fresh Sol reviewer. Reviewers may execute cache-producing tests but must preserve source and contracts; post-review fingerprints enforce this. Environment failures retry verification or review only. Contract revisions preserve implementation and prior evidence without repeating investigation.
-
-UI workflows require a post-implementation PNG/JPEG at supplied path and route. Runner rejects stale, renamed, invalid, or review-drifted images and writes manifest. Required external verification blocks nested runner; do not relabel it as local evidence.
-
-Do not call a route evaluated by default. All generic routes begin as hypotheses. Evaluation evidence may promote exact model selection, but every local-workspace workflow always records a fresh independent Sol review.
+Existing code runs remain resumable with their saved status/wait/resume commands. New session-pickup work resumes existing progress rather than rebuilding it.
