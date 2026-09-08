@@ -17,7 +17,7 @@ function fixture(t, dependencies = true) {
   const planFile = path.join(root, 'plan.json'), requestFile = path.join(root, 'request.txt'), scopeFile = path.join(root, 'scope.json');
   fs.writeFileSync(planFile, JSON.stringify(plan)); fs.writeFileSync(requestFile, 'Integrate all features');
   fs.writeFileSync(scopeFile, JSON.stringify({ allowedImplementationPaths: ['a.txt', 'b.txt', 'c.txt'], allowedTestPaths: ['a.test.mjs', 'b.test.mjs', 'c.test.mjs'], requiredRequirementIds: ['all-work'] }));
-  return { source, planFile, requestFile, scopeFile, plan };
+  return { source, planFile, requestFile, scopeFile, plan, authority: 'local-workspace' };
 }
 const success = run => ({ phase: 'complete', verified: true, run });
 function implement(task, workspace) { fs.writeFileSync(path.join(workspace, `${task.id}.txt`), task.id); fs.writeFileSync(path.join(workspace, `${task.id}.test.mjs`), `assert('${task.id}');\n`); }
@@ -77,6 +77,15 @@ test('reject unowned tests and dirty source before running', async t => {
   await assert.rejects(startQueue({ ...f }), /owns must cover/);
   fs.writeFileSync(path.join(f.source, 'untracked'), 'x'); await assert.rejects(startQueue({ ...f }), /source must be clean/);
 });
+test('queue validates every task scope and authority before execution', async t => {
+  const f = fixture(t); let calls = 0;
+  const execute = async () => { calls++; return success('unexpected'); };
+  await assert.rejects(startQueue({ ...f, authority: 'read-only', execute }), /explicit local-workspace/);
+  f.plan.tasks[0].owns = ['a']; f.plan.tasks[0].scope.allowedImplementationPaths = ['a/**'];
+  fs.writeFileSync(f.planFile, JSON.stringify(f.plan));
+  await assert.rejects(startQueue({ ...f, execute }), /unsupported scope glob/);
+  assert.equal(calls, 0);
+});
 test('stale running slots block without launching duplicate workers', async t => {
   const f = fixture(t);
   const initial = await startQueue({ ...f, execute: async () => ({ phase: 'blocked' }) });
@@ -134,7 +143,7 @@ else {
 fs.writeFileSync(out,JSON.stringify(result)); console.log(JSON.stringify({type:'turn.completed'}));
 `, {mode:0o755});
   const cli = fileURLToPath(new URL('./orchestrator.mjs', import.meta.url));
-  const stdout = execFileSync(process.execPath, [cli,'start','--workspace',f.source,'--plan-file',f.planFile,'--request-file',f.requestFile,'--scope-file',f.scopeFile,'--codex-bin',binary], {encoding:'utf8',timeout:60000});
+  const stdout = execFileSync(process.execPath, [cli,'start','--workspace',f.source,'--authority','local-workspace','--plan-file',f.planFile,'--request-file',f.requestFile,'--scope-file',f.scopeFile,'--codex-bin',binary], {encoding:'utf8',timeout:60000});
   const final = JSON.parse(stdout.trim().split('\n').at(-1));
   assert.equal(final.phase,'complete');
   const status = JSON.parse(execFileSync(process.execPath,[cli,'status','--run',final.run],{encoding:'utf8'}).trim());

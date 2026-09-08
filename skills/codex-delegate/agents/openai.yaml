@@ -1,7 +1,7 @@
 interface:
   display_name: "Codex Delegate"
   short_description: "Route bounded work through evidence-gated autonomous delegation"
-  default_prompt: "Use $codex-delegate with one persistent lead session. Reuse its context for investigation, implementation and repairs; delegate only independent bounded work and finish with fresh Sol review and required evidence."
+  default_prompt: "Use $codex-delegate with one persistent lead session. Validate scope and existing user authority before dispatch, track implementation through completion or a concrete unresolved blocker, and finish with fresh Sol review and evidence. Starting a run is not completion."
 
 policy:
   allow_implicit_invocation: true

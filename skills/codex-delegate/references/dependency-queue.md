@@ -5,12 +5,13 @@ Use the queue when implementation separates into disjoint file owners. Keep a na
 ```sh
 node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \
   --workspace /absolute/clean-repository \
+  --authority local-workspace \
   --plan-file /absolute/plan.json \
   --request-file /absolute/original-request.txt \
   --scope-file /absolute/integration-scope.json
 ```
 
-The plan has a tasks array. Each task specifies `id`, `dependsOn`, `owns`, `request`, and `scope`. Scope uses `allowedImplementationPaths`, `allowedTestPaths`, and `requiredRequirementIds`. Include both source and test paths in owns. Paths are exact files or directories, optionally ending in `/**`; arbitrary globs are unsupported. A shared contract belongs to one predecessor, with API and Web tasks depending on it. Cycles, missing dependencies, and overlapping ownership fail before work begins.
+The plan has a tasks array. Each task specifies `id`, `dependsOn`, `owns`, `request`, and `scope`. Scope uses `allowedImplementationPaths`, `allowedTestPaths`, and `requiredRequirementIds`. Include both source and test paths in owns. Use literal relative files or directories in scope fields; glob suffixes such as `/**` are rejected. The separate owns field retains its legacy trailing `/**` support, but directory paths avoid ambiguity across fields. A shared contract belongs to one predecessor, with API and Web tasks depending on it. Cycles, missing dependencies, and overlapping ownership fail before work begins.
 
 Set `probeModule` to a declared root dependency when pnpm installation is required, for example `typescript`. A task may override its probe; the plan-level probe prepares the integrated checkout too. Installations reuse the configured pnpm store and worker preparation cache. Two ready tasks run concurrently by default; `--concurrency 1` selects serial execution. A freed slot immediately starts another ready task.
 

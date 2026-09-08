@@ -245,14 +245,17 @@ function lock(root, run, recovering = false) {
     fs.rmdirSync(lockDir);
   };
 }
-function validateScope(scope, root) {
-  if (!scope) return undefined;
+export function validateScope(scope, root) {
+  if (scope === undefined) return undefined;
+  ensure(scope && typeof scope === 'object', 'invalid scope contract');
   ensure(
     Array.isArray(scope.allowedImplementationPaths) &&
       Array.isArray(scope.allowedTestPaths) &&
       Array.isArray(scope.requiredRequirementIds),
     "invalid scope contract",
   );
+  for (const value of [...scope.allowedImplementationPaths, ...scope.allowedTestPaths])
+    ensure(text(value) && !/[?*]/.test(value), `unsupported scope glob: ${value}; use an exact file or directory path without /** (directories include descendants)`);
   const implementationPaths = scope.allowedImplementationPaths.map((file) =>
     safePath(root, file),
   );

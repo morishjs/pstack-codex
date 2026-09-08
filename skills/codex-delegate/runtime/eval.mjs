@@ -102,6 +102,7 @@ export function grade(workspace) {
 export async function run({ outDir, codexBin }) {
   const prepared = prepare(outDir);
   const state = await start({
+    authority: 'local-workspace',
     ...prepared,
     codexBin,
     onRunCreated: () => {},

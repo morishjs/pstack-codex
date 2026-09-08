@@ -13,6 +13,8 @@ Read [references/runtime.md](references/runtime.md) before invoking it. Read [re
 
 Create a request file. Optionally provide a scope contract with `allowedImplementationPaths`, `allowedTestPaths`, and `requiredRequirementIds`.
 
+Set `--authority local-workspace` when the existing user request authorizes implementation; use `read-only` for inspection. Do not ask again for authority already provided. This is a coordinator decision, not a classifier decision. Scope paths must be literal relative files or directories: use `apps/api/src/modules/payment`, not `apps/api/src/modules/payment/**`. Directories already include descendants. Scope syntax and write authority are validated before a model starts.
+
 For isolated code workers, prepare a reusable checkout as described in [worker-workspaces.md](references/worker-workspaces.md). Use the returned workspace with the orchestrator. Reuse the same worker ID for repairs; read-only investigation uses the existing checkout without installation.
 
 For independent API/Web or other disjoint implementation lanes, use the [dependency queue](references/dependency-queue.md) with `--plan-file`. Establish shared contracts as predecessors. The queue runs up to two ready lanes, preserves successful work across retries, then verifies the integrated artifact with Sol.
@@ -22,6 +24,7 @@ A phase transition does not require a new model session. Reuse completed investi
 ```bash
 node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \
   --workspace /absolute/workspace \
+  --authority local-workspace \
   --request-file /absolute/request.txt \
   --scope-file /absolute/scope.json \
   --runtime-visual-evidence /absolute/ui-evidence.png \
@@ -31,6 +34,14 @@ node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \
 For `ui-change`, supply both visual flags. Evidence path is expected output path, not pre-captured proof. Omit both when irrelevant. Use `--codex-bin /absolute/codex` only when executable is not on `PATH`.
 
 Use `status --run /absolute/run` to inspect a run. Use `resume --run /absolute/run --retry` only after resolving its recorded blocker. The nested runner is internal; do not start it as the normal workflow.
+
+## Own the task through completion
+
+Starting Delegate is not completion of an implementation request. Retain the tool execution session and await its output until the run completes or needs intervention. Use progress commentary while waiting; do not end the user turn merely because a run path was created or a status query succeeded.
+
+If the original execution handle is unavailable, use `orchestrator.mjs wait --run PATH --timeout-ms 60000`. A wait timeout returns `completed:false`, `timedOut:true`, exit 2; continue tracking rather than reporting completion. A blocked result returns exit 1; inspect the reason and resolve authorized environment, contract, or implementation issues at the failed stage. Stop only for verified completion, explicit user interruption, or a concrete blocker that cannot be resolved within existing authority. Report which case applies and preserve the run reference.
+
+Before the final implementation response, collect the terminal result and required verification evidence. If only a status question arrives during implementation, answer briefly in commentary and keep working. This skill instructs the coordinator's behavior; the runtime cannot prevent the host assistant from ending its turn.
 
 ## Authority and delivery
 

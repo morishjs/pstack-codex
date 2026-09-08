@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { createMachine, transition } from 'xstate';
 import { validatePlan, runQueue } from './task-queue.mjs';
 import { prepareWorker, dependencyKey } from './worker-workspace.mjs';
-import { status as runnerStatus } from './runner.mjs';
+import { status as runnerStatus, validateScope as validateRunnerScope } from './runner.mjs';
 
 const ensure = (ok, message) => { if (!ok) throw new Error(message); };
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -45,18 +45,19 @@ function move(state, event) {
   const [next] = transition(queueMachine, queueMachine.resolveState({ value: state.phase, context: {} }), { type: event });
   ensure(next.value !== state.phase, `invalid queue transition: ${state.phase}/${event}`); state.phase = next.value; save(state);
 }
-function validateScope(scope) {
+function validateScope(scope, root) {
   ensure(scope && ['allowedImplementationPaths', 'allowedTestPaths', 'requiredRequirementIds'].every(key => Array.isArray(scope[key]) && scope[key].every(p => typeof p === 'string' && p.trim())), 'explicit implementation/test/requirement scope required');
   ensure(scope.requiredRequirementIds.length > 0, 'requiredRequirementIds must not be empty');
+  validateRunnerScope(scope, root);
   return scope;
 }
-function tasksFrom(plan) {
+function tasksFrom(plan, root) {
   const tasks = validatePlan(Array.isArray(plan) ? plan : plan.tasks);
   ensure(tasks.length > 0, 'plan needs tasks');
   for (const task of tasks) {
     ensure(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(task.id), 'task id must be a simple identifier');
     ensure(typeof task.request === 'string' && task.request.trim(), `request required: ${task.id}`);
-    validateScope(task.scope);
+    validateScope(task.scope, root);
     for (const p of [...task.scope.allowedImplementationPaths, ...task.scope.allowedTestPaths]) {
       ensure(!path.isAbsolute(p) && !p.split('/').includes('..'), `invalid scope path: ${p}`);
       ensure(task.owns.some(owned => matches(p.replace(/\/\*\*$/, ''), owned)), `owns must cover implementation and tests: ${task.id}/${p}`);
@@ -68,7 +69,7 @@ function load(session) {
   const state = json(path.join(path.resolve(session), 'state.json'));
   ensure(state.session === path.resolve(session) && state.version === 1, 'session identity/version mismatch');
   for (const [file, digest] of Object.entries(state.frozen)) ensure(hash(fs.readFileSync(path.join(state.session, file))) === digest, `frozen input changed: ${file}`);
-  state.tasks = tasksFrom(json(path.join(state.session, 'plan.json')));
+  state.tasks = tasksFrom(json(path.join(state.session, 'plan.json')), state.source);
   return state;
 }
 function checkpoint(workspace, message) {
@@ -94,7 +95,7 @@ function validResult(result) {
 }
 async function executeDefault({ workspace, requestFile, scopeFile, run, codexBin, onRunCreated }) {
   const { start: startOrchestrator, resume: resumeOrchestrator } = await import('./orchestrator.mjs');
-  const result = run ? await resumeOrchestrator({ run, retry: true, codexBin }) : await startOrchestrator({ workspace, requestFile, scopeFile, codexBin, onRunCreated });
+  const result = run ? await resumeOrchestrator({ run, retry: true, codexBin }) : await startOrchestrator({ workspace, requestFile, scopeFile, codexBin, authority: 'local-workspace', onRunCreated });
   const nested = result.nestedRun ? await runnerStatus(result.nestedRun) : undefined;
   return { phase: result.phase, run: result.run, reason: result.reason, verified: nested?.phase === 'complete' && nested.review?.status === 'pass' && nested.review.requirements.every(r => r.status === 'pass') };
 }
@@ -204,10 +205,11 @@ async function drive(state, { execute = executeDefault, retry = false, recoverIn
   } finally { fs.rmSync(lock, { recursive: true, force: true }); }
   return state;
 }
-export async function startQueue({ source, planFile, requestFile, scopeFile, codexBin = 'codex', concurrency = 2, ...options }) {
+export async function startQueue({ source, planFile, requestFile, scopeFile, authority = 'read-only', codexBin = 'codex', concurrency = 2, ...options }) {
+  ensure(authority === 'local-workspace', 'implementation queue requires explicit local-workspace authority');
   source = fs.realpathSync(source); ensure(clean(source), 'source must be clean including untracked files except .codex-delegate');
   ensure(git(source, 'rev-parse', '--show-toplevel').trim() === source, 'source must be a Git root');
-  const plan = json(planFile), tasks = tasksFrom(plan), scope = validateScope(json(scopeFile));
+  const plan = json(planFile), tasks = tasksFrom(plan, source), scope = validateScope(json(scopeFile), source);
   const probes = [...new Set(tasks.map(task => task.probeModule).filter(Boolean))];
   const probeModule = plan.probeModule ?? (probes.length === 1 ? probes[0] : undefined);
   ensure(probes.length < 2 || probeModule, 'multiple task probes require explicit plan.probeModule for integration');
@@ -250,7 +252,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     const [command, ...args] = process.argv.slice(2), get = name => { const i = args.indexOf(name); return i < 0 ? undefined : args[i + 1]; };
     let state;
-    if (command === 'start') state = await startQueue({ source: get('--source'), planFile: get('--plan-file'), requestFile: get('--request-file'), scopeFile: get('--scope-file'), codexBin: get('--codex-bin'), concurrency: Number(get('--concurrency') ?? 2), onSessionCreated: session => console.log(session) });
+    if (command === 'start') state = await startQueue({ source: get('--source'), planFile: get('--plan-file'), requestFile: get('--request-file'), scopeFile: get('--scope-file'), authority: get('--authority'), codexBin: get('--codex-bin'), concurrency: Number(get('--concurrency') ?? 2), onSessionCreated: session => console.log(session) });
     else if (command === 'resume') state = await resumeQueue({ session: get('--session'), retry: args.includes('--retry'), recoverInterrupted: args.includes('--recover-interrupted') });
     else if (command === 'status') state = await queueStatus(get('--session'));
     else throw new Error('usage: start --source PATH --plan-file JSON --request-file FILE --scope-file JSON [--codex-bin PATH] [--concurrency 1|2] | resume --session PATH --retry [--recover-interrupted] | status --session PATH');

@@ -24,6 +24,8 @@ npm test
 
 See [`skills/codex-delegate/SKILL.md`](skills/codex-delegate/SKILL.md) for invocation and runtime boundaries.
 
+Implementation starts require `--authority local-workspace`, derived from the existing user request. Scope paths are literal files/directories; unsupported glob syntax is rejected before any model call. The coordinator tracks the execution through completion or an unresolved blocker. `wait --run PATH` reports pending timeouts explicitly instead of treating a successful status query as completion.
+
 Independent implementation tasks can use a [dependency queue](skills/codex-delegate/references/dependency-queue.md) with up to two active lanes. Each lane keeps an isolated worktree across retries; successful patches are reused only while their evidence remains valid. The integrated checkout must pass combined checks and a fresh Sol review. Environment failures resume verification or review without restarting investigation; contract revisions preserve prior failure evidence and already-fixed implementation.
 
 ## Legacy Poteto Mode

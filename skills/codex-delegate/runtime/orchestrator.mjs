@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMachine, transition as step } from "xstate";
-import { start as startRunner, resume as resumeRunner, status as runnerStatus } from "./runner.mjs";
+import { start as startRunner, resume as resumeRunner, status as runnerStatus, validateScope } from "./runner.mjs";
 import { WORKFLOW_REGISTRY, validateWorkflowRegistry } from "./workflows.mjs";
 import { selectModel, validateModelPolicy } from "./model-policy.mjs";
 
@@ -58,10 +58,11 @@ const classificationSchema = schema({
 });
 const findingsSchema = schema({ findings: { type: "array", items: { type: "string" } }, evidence: { type: "array", items: { type: "string" } }, unknowns: { type: "array", items: { type: "string" } } });
 const designSchema = schema({ decisions: { type: "array", items: { type: "string" } }, evidence: { type: "array", items: { type: "string" } }, unknowns: { type: "array", items: { type: "string" } } });
-function validateClassification(value) {
+function validateClassification(value, authority) {
   ensure(value && WORKFLOW_REGISTRY[value.workflow], "malformed route: unknown workflow");
   ensure(value.taskClass === value.workflow && ["low", "medium", "high"].includes(value.risk) && ["low", "medium", "high"].includes(value.complexity), "malformed route taskClass/workflow mismatch");
   ensure(Array.isArray(value.signals) && value.signals.every(text) && text(value.reason), "malformed route signals/reason");
+  if (authority) value.authorizedActions = authority === 'local-workspace' && WORKFLOW_REGISTRY[value.workflow].sideEffectCeiling === 'local-workspace' ? ['read-only', 'local-workspace'] : ['read-only'];
   ensure(Array.isArray(value.authorizedActions) && value.authorizedActions.every((x) => ["read-only", "local-workspace"].includes(x)), "malformed route authorization");
   const ceiling = WORKFLOW_REGISTRY[value.workflow].sideEffectCeiling;
   ensure(value.authorizedActions.every((x) => x === "read-only" || ceiling === "local-workspace"), "route exceeds workflow side-effect ceiling");
@@ -122,7 +123,7 @@ function assignment(state, capability) {
 function contextArtifact(file, label) { return { path: file, label, hash: hash(fs.readFileSync(file)) }; }
 function promptFor(state, phase) {
   const base = `You are the ${phase} phase for Codex Delegate. Workspace: ${state.workspace}. Original request:\n${state.request}\n\nThis turn is a read-only phase. Reuse your existing task context and inspect only missing or changed evidence. Do not write workspace files, commit, push, deploy, message external systems, or spawn agents. Return only JSON matching the schema.`;
-  if (phase === "classify") return `${base}\nChoose one registered workflow. Set taskClass to that exact registered workflow key; put any free-form diagnosis only in reason. Authorization is an action ceiling: only read-only/local-workspace are allowed; never infer push, merge, deploy, or external writes.`;
+  if (phase === "classify") return `${base}\nChoose one registered workflow. Set taskClass to that exact registered workflow key; put any free-form diagnosis only in reason. Caller authority is ${state.authority ?? 'legacy recorded authority'}. You classify work, not permission. For read-only authority choose investigation. Never infer push, merge, deploy, or external writes.`;
   return `${base}\nClassification: ${JSON.stringify(state.classification)}\n${state.investigation ? `Prior investigation: ${path.join(state.run, 'investigation.json')}. Reuse its findings and inspect only unresolved evidence.` : ''}\nProvide direct local evidence paths/commands and unknowns. Read only files relevant to the request and scope; avoid entire repository or home-directory dumps.`;
 }
 function loadPolicy() { const policy = readJson(path.join(runtimeDir, "model-policy.json")); ensure(validateModelPolicy(policy).valid, "invalid model policy"); return policy; }
@@ -138,7 +139,10 @@ async function drive(state, options) {
     while (!["complete", "blocked"].includes(state.phase)) {
       if (state.phase === "classifying") {
         const route = selectModel({ capability: "classify", taskClass: "classification", risk: "low", complexity: "low", policy: state.policy });
-        const result = validateClassification(await invoke(state, { phase: "classify", model: route.model, reasoning: route.reasoning, sandbox: "read-only", schema: classificationSchema, prompt: promptFor(state, "classify") }, options));
+        const outputSchema = structuredClone(classificationSchema);
+        if (state.implementationRequired) for (const key of ['workflow', 'taskClass']) outputSchema.properties[key].enum = outputSchema.properties[key].enum.filter(kind => kind !== 'investigation');
+        const result = validateClassification(await invoke(state, { phase: "classify", model: route.model, reasoning: route.reasoning, sandbox: "read-only", schema: outputSchema, prompt: promptFor(state, "classify") }, options), state.authority);
+        ensure(!state.implementationRequired || result.workflow !== 'investigation', 'implementation scope cannot finish as investigation-only');
         if (result.workflow === "ui-change") ensure(state.runtimeVisualEvidence?.path && text(state.runtimeVisualEvidence.route), "ui-change needs --runtime-visual-evidence and --runtime-visual-route");
         state.classification = result; state.assignments.classify = route; atomic(path.join(state.run, "classification.json"), result); recordEvidence(state, "classify", result); persist(state, "classified", { route });
         if (state.leadSession) {
@@ -203,24 +207,50 @@ async function drive(state, options) {
   } catch (error) { state.reason = error.message; state.blockedPhase = state.phase; if (state.phase !== "blocked") move(state, "BLOCK"); }
   return state;
 }
-function load(run) { const state = readJson(path.join(path.resolve(run), "state.json")); ensure(state.version === VERSION && state.run === path.resolve(run), "run identity/version mismatch"); ensure(hash(fs.readFileSync(path.join(state.run, "request.txt"))) === state.requestHash, "request changed"); ensure(hash(fs.readFileSync(path.join(state.run, "config.json"))) === state.configHash, "run config changed"); return state; }
-export async function start({ workspace, requestFile, scopeFile, planFile, runtimeVisualEvidenceFile, runtimeVisualRoute, policy, ...options }) {
+function load(run) { const state = readJson(path.join(path.resolve(run), "state.json")); ensure(state.version === VERSION && state.run === path.resolve(run), "run identity/version mismatch"); ensure(hash(fs.readFileSync(path.join(state.run, "request.txt"))) === state.requestHash, "request changed"); ensure(hash(fs.readFileSync(path.join(state.run, "config.json"))) === state.configHash, "run config changed"); if (state.scopeHash) ensure(hash(fs.readFileSync(state.scopeFile)) === state.scopeHash, 'scope changed'); return state; }
+export async function start({ workspace, requestFile, scopeFile, planFile, authority = 'read-only', runtimeVisualEvidenceFile, runtimeVisualRoute, policy, ...options }) {
+  ensure(['read-only', 'local-workspace'].includes(authority), 'authority must be read-only or local-workspace');
+  workspace = fs.realpathSync(workspace);
+  let scopeInput;
+  if (scopeFile) {
+    scopeInput = readJson(scopeFile);
+    const scope = validateScope(scopeInput, workspace);
+    ensure(authority === 'local-workspace' || !scope || (!scope.implementationPaths.length && !scope.testPaths.length), 'write scope requires --authority local-workspace');
+  }
+  if (planFile) ensure(authority === 'local-workspace', 'implementation queue requires explicit local-workspace authority');
   if (planFile) {
     const { startQueue } = await import('./queue-session.mjs');
-    return startQueue({ source: workspace, requestFile, scopeFile, planFile, ...options, onSessionCreated: options.onRunCreated });
+    return startQueue({ source: workspace, requestFile, scopeFile, planFile, authority, ...options, onSessionCreated: options.onRunCreated });
   }
   validateWorkflowRegistry(); workspace = fs.realpathSync(workspace); ensure(path.isAbsolute(workspace) && text(fs.readFileSync(requestFile, "utf8")), "workspace/request required");
   const run = path.join(workspace, ".codex-delegate", "sessions", randomUUID()); fs.mkdirSync(path.join(run, "phases"), { recursive: true, mode: 0o700 });
+  if (scopeInput) { scopeFile = path.join(run, 'scope.json'); atomic(scopeFile, scopeInput); }
   const visual = runtimeVisualEvidenceFile ? path.resolve(runtimeVisualEvidenceFile) : undefined;
   const selectedPolicy = policy ?? loadPolicy(); ensure(validateModelPolicy(selectedPolicy).valid, "invalid model policy");
   const executionMode = options.executionMode ?? 'lead';
   ensure(['lead', 'isolated'].includes(executionMode), 'executionMode must be lead or isolated');
   const state = { version: VERSION, id: path.basename(run), run, workspace, request: fs.readFileSync(requestFile, "utf8"), requestHash: hash(fs.readFileSync(requestFile, "utf8")), scopeFile, codexBin: options.codexBin ?? "codex", policy: selectedPolicy, executionMode, ...(executionMode === 'lead' ? { leadSession: { model: 'gpt-5.6-terra' } } : {}), phase: "classifying", sequence: 0, agents: [], assignments: {}, evidence: {}, runtimeVisualEvidence: visual ? { path: visual, route: runtimeVisualRoute, start: visualStart(visual) } : undefined, createdAt: stamp() };
-  fs.writeFileSync(path.join(run, "request.txt"), state.request, { mode: 0o600 }); const config = { workspace, scopeFile, codexBin: state.codexBin, executionMode }; atomic(path.join(run, "config.json"), config); state.configHash = hash(JSON.stringify(config, null, 2)); persist(state, "start"); options.onRunCreated?.(run); return drive(state, options);
+  state.authority = authority;
+  state.implementationRequired = Boolean(scopeInput?.allowedImplementationPaths?.length || scopeInput?.allowedTestPaths?.length);
+  if (scopeFile) state.scopeHash = hash(fs.readFileSync(scopeFile));
+  fs.writeFileSync(path.join(run, "request.txt"), state.request, { mode: 0o600 }); const config = { workspace, scopeFile, codexBin: state.codexBin, executionMode, authority }; atomic(path.join(run, "config.json"), config); state.configHash = hash(JSON.stringify(config, null, 2)); persist(state, "start"); options.onRunCreated?.(run); return drive(state, options);
 }
 export async function status(run) {
   if (readJson(path.join(path.resolve(run), 'state.json')).session) return (await import('./queue-session.mjs')).queueStatus(run);
-  const state = load(run); if (state.nestedRun) state.nestedStatus = await runnerStatus(state.nestedRun); return state;
+  const state = load(run); if (state.nestedRun) state.nestedStatus = await runnerStatus(state.nestedRun);
+  if (state.phase === 'complete' && state.nestedStatus && state.nestedStatus.phase !== 'complete') return { ...state, phase: 'blocked', reason: state.nestedStatus.reason ?? 'nested evidence incomplete' };
+  return state;
+}
+export async function waitUntilSettled({ run, timeoutMs = 60000, pollMs = 1000, readStatus = status }) {
+  ensure(Number.isFinite(timeoutMs) && timeoutMs >= 0 && timeoutMs <= 60000, 'wait timeout must be between 0 and 60000 ms');
+  ensure(Number.isFinite(pollMs) && pollMs > 0, 'poll interval must be positive');
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    const state = await readStatus(run);
+    const settled = ['complete', 'blocked'].includes(state.phase);
+    if (settled || Date.now() >= deadline) return { run, phase: state.phase, reason: state.reason, completed: state.phase === 'complete', timedOut: !settled };
+    await new Promise(resolve => setTimeout(resolve, Math.min(pollMs, Math.max(0, deadline - Date.now()))));
+  }
 }
 export async function resume({ run, retry = false, ...options }) {
   if (readJson(path.join(path.resolve(run), 'state.json')).session) return (await import('./queue-session.mjs')).resumeQueue({ session: run, retry, ...options });
@@ -235,9 +265,10 @@ export async function resume({ run, retry = false, ...options }) {
 }
 async function main() {
   try { const [command, ...args] = process.argv.slice(2); const value = (key) => cliValue(args, key); let state;
-    if (command === "start") { ensure(value("--workspace") && value("--request-file"), "start needs --workspace and --request-file"); state = await start({ workspace: value("--workspace"), requestFile: value("--request-file"), scopeFile: value("--scope-file"), planFile: value('--plan-file'), executionMode: value('--execution-mode'), concurrency: Number(value('--concurrency') ?? 2), runtimeVisualEvidenceFile: value("--runtime-visual-evidence"), runtimeVisualRoute: value("--runtime-visual-route"), codexBin: value("--codex-bin"), onRunCreated: (run) => console.log(run) }); }
-    else if (command === "status") state = await status(value("--run")); else if (command === "resume") state = await resume({ run: value("--run"), retry: args.includes("--retry"), recoverInterrupted: args.includes('--recover-interrupted') }); else throw new Error("usage: start --workspace ABS --request-file ABS [--scope-file ABS] [--plan-file JSON --concurrency 1|2] [--runtime-visual-evidence FILE --runtime-visual-route ROUTE] [--codex-bin ABS] | status --run ABS | resume --run ABS [--retry] [--recover-interrupted]");
-    console.log(JSON.stringify({ run: state.run ?? state.session, phase: state.phase, reason: state.reason })); if (state.phase === "blocked") process.exitCode = 1;
+    if (command === "start") { ensure(value("--workspace") && value("--request-file"), "start needs --workspace and --request-file"); state = await start({ workspace: value("--workspace"), requestFile: value("--request-file"), scopeFile: value("--scope-file"), authority: value('--authority'), planFile: value('--plan-file'), executionMode: value('--execution-mode'), concurrency: Number(value('--concurrency') ?? 2), runtimeVisualEvidenceFile: value("--runtime-visual-evidence"), runtimeVisualRoute: value("--runtime-visual-route"), codexBin: value("--codex-bin"), onRunCreated: (run) => console.log(run) }); }
+    else if (command === 'wait') state = await waitUntilSettled({ run: value('--run'), timeoutMs: Number(value('--timeout-ms') ?? 60000) });
+    else if (command === "status") state = await status(value("--run")); else if (command === "resume") state = await resume({ run: value("--run"), retry: args.includes("--retry"), recoverInterrupted: args.includes('--recover-interrupted') }); else throw new Error("usage: start --workspace ABS --request-file ABS [--authority read-only|local-workspace] [--scope-file ABS] [--plan-file JSON --concurrency 1|2] [--runtime-visual-evidence FILE --runtime-visual-route ROUTE] [--codex-bin ABS] | status --run ABS | wait --run ABS [--timeout-ms 60000] | resume --run ABS [--retry] [--recover-interrupted]");
+    console.log(JSON.stringify({ run: state.run ?? state.session, phase: state.phase, reason: state.reason, completed: state.phase === 'complete', ...(state.timedOut !== undefined ? {timedOut: state.timedOut} : {}) })); if (state.phase === "blocked") process.exitCode = 1; else if (command === 'wait' && state.timedOut) process.exitCode = 2;
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

@@ -7,6 +7,7 @@
 ```bash
 node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \
   --workspace ABS \
+  --authority local-workspace \
   --request-file ABS \
   [--scope-file ABS] \
   [--runtime-visual-evidence FILE] \
@@ -14,10 +15,15 @@ node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \
   [--codex-bin PATH]
 
 node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs status --run ABS
+node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs wait --run ABS --timeout-ms 60000
 node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs resume --run ABS [--retry]
 ```
 
 `--workspace` and `--request-file` are required for `start`. UI runs require both visual flags. The evidence path is an expected output path. `status` and `resume` require `--run`; `--retry` is only for blocked run.
+
+Authority defaults to read-only. Implementation scope and queues require explicit `--authority local-workspace`, set from the user's existing request. The classifier chooses a workflow but cannot grant or revoke caller authority. Scope fields accept literal relative files/directories only; `*`, `**`, and `?` are rejected before dispatch. A directory includes its descendants without a glob suffix. Queue task scopes use the same validator.
+
+`status` reports a snapshot; successful status execution does not mean task completion. `wait` waits up to 60 seconds and reports `completed` explicitly. Exit 2 means still pending, exit 1 means blocked, exit 0 means complete. Waiting does not create a background supervisor after the main assistant stops; the coordinator must retain and follow the execution.
 
 ## Routing and models
 

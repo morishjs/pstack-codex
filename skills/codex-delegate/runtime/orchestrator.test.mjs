@@ -6,8 +6,8 @@ import path from "node:path";
 import os from "node:os";
 import { execFileSync, spawn as nativeSpawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cliValue, start as startOrchestrator, resume, transition } from "./orchestrator.mjs";
-const start = options => startOrchestrator({ ...options, executionMode: 'isolated' });
+import { cliValue, start as startOrchestrator, resume, transition, waitUntilSettled } from "./orchestrator.mjs";
+const start = options => startOrchestrator({ authority: 'local-workspace', ...options, executionMode: 'isolated' });
 import { canonicalRouteKey } from "./model-policy.mjs";
 
 async function fixture(route) {
@@ -105,10 +105,61 @@ test("classifier taskClass must equal its registered workflow key", async () => 
   assert.match(state.reason, /taskClass\/workflow mismatch/);
 });
 test("mutation workflow rejects read-only authorization", async () => {
-  const f = await fixture({ ...simple, authorizedActions: ["read-only"] });
-  const state = await start({ workspace: f.root, requestFile: f.requestFile, codexBin: process.execPath, spawn: spawnFor(f, []) });
+  const f = await fixture(simple);
+  const state = await start({ workspace: f.root, requestFile: f.requestFile, authority: 'read-only', codexBin: process.execPath, spawn: spawnFor(f, []) });
   assert.equal(state.phase, "blocked");
   assert.match(state.reason, /local-workspace authorization/);
+});
+
+test('unsupported scope and missing write authority fail before any model call', async () => {
+  const f = await fixture(simple), scopeFile = path.join(f.root, 'scope.json'); let calls = 0;
+  const options = { workspace: f.root, requestFile: f.requestFile, scopeFile, spawn: () => { calls++; throw new Error('model must not run'); } };
+  for (const field of ['allowedImplementationPaths', 'allowedTestPaths']) {
+    writeFileSync(scopeFile, JSON.stringify({ allowedImplementationPaths: ['src'], allowedTestPaths: ['test'], requiredRequirementIds: ['R1'], [field]: ['src/**'] }));
+    await assert.rejects(startOrchestrator({ ...options, authority: 'local-workspace' }), /unsupported scope glob/);
+  }
+  writeFileSync(scopeFile, JSON.stringify({ allowedImplementationPaths: ['src'], allowedTestPaths: ['test'], requiredRequirementIds: ['R1'] }));
+  await assert.rejects(startOrchestrator(options), /write scope requires/);
+  await assert.rejects(startOrchestrator({ ...options, authority: 'admin' }), /authority must/);
+  assert.equal(calls, 0);
+});
+
+test('classifier cannot veto explicit local authority', async () => {
+  const f = await fixture({ ...simple, authorizedActions: ['read-only'] });
+  const result = await start({ workspace: f.root, requestFile: f.requestFile, authority: 'local-workspace', spawn: spawnFor(f, []) });
+  assert.equal(result.phase, 'complete', result.reason);
+});
+test('write scope cannot be downgraded to investigation-only completion', async () => {
+  const f = await fixture({ ...simple, workflow: 'investigation', taskClass: 'investigation', finishAfterInvestigation: true });
+  const scopeFile = path.join(f.root, 'scope.json');
+  writeFileSync(scopeFile, JSON.stringify({ allowedImplementationPaths: ['app.mjs'], allowedTestPaths: ['check.mjs'], requiredRequirementIds: ['R1'] }));
+  const result = await start({ workspace: f.root, requestFile: f.requestFile, scopeFile, spawn: spawnFor(f, []) });
+  assert.equal(result.phase, 'blocked');
+  assert.match(result.reason, /investigation-only/);
+});
+test('validated scope is copied and frozen before model execution', async () => {
+  const f = await fixture(simple), scopeFile = path.join(f.root, 'scope.json');
+  writeFileSync(scopeFile, JSON.stringify({ allowedImplementationPaths: ['app.mjs'], allowedTestPaths: ['check.mjs'], requiredRequirementIds: ['R1'] }));
+  let changed = false;
+  const spawn = (cmd, args, options) => {
+    if (!changed) { changed = true; writeFileSync(scopeFile, '{}'); }
+    return spawnFor(f, [])(cmd, args, options);
+  };
+  const result = await start({ workspace: f.root, requestFile: f.requestFile, scopeFile, spawn });
+  assert.equal(result.phase, 'complete', result.reason);
+  assert.notEqual(result.scopeFile, scopeFile);
+  writeFileSync(result.scopeFile, '{}');
+  await assert.rejects(resume({ run: result.run }), /scope changed/);
+});
+
+test('wait distinguishes pending timeout, repairable block and completion', async () => {
+  const pending = await waitUntilSettled({ run: 'fixture', timeoutMs: 0, readStatus: async () => ({ phase: 'designing' }) });
+  assert.equal(pending.completed, false); assert.equal(pending.timedOut, true);
+  let reads = 0;
+  const done = await waitUntilSettled({ run: 'fixture', timeoutMs: 1000, pollMs: 1, readStatus: async () => ({ phase: ++reads === 1 ? 'reviewing' : 'complete' }) });
+  assert.equal(done.completed, true); assert.equal(reads, 2);
+  const blocked = await waitUntilSettled({ run: 'fixture', readStatus: async () => ({ phase: 'blocked', reason: 'environment repair needed' }) });
+  assert.equal(blocked.completed, false); assert.equal(blocked.timedOut, false);
 });
 test("contract revisions restart with Sol then Astra and stop at the budget", async () => {
   const f = await fixture(simple), seen = [];
@@ -190,7 +241,7 @@ test("PR maintenance remains local-workspace only", async () => {
 
 test('default lead mode reuses classification, investigation and author context; Sol review is fresh', async () => {
   const f = await fixture({ ...simple, workflow: 'bug-fix', taskClass: 'bug-fix', complexity: 'high' });
-  const seen = [], result = await startOrchestrator({ workspace: f.root, requestFile: f.requestFile, spawn: spawnFor(f, seen) });
+  const seen = [], result = await startOrchestrator({ workspace: f.root, requestFile: f.requestFile, authority: 'local-workspace', spawn: spawnFor(f, seen) });
   assert.equal(result.phase, 'complete', result.reason);
   const nested = JSON.parse(readFileSync(path.join(result.nestedRun,'state.json'),'utf8'));
   const id = result.agents[0].threadId;
@@ -202,7 +253,7 @@ test('default lead mode reuses classification, investigation and author context;
 });
 test('hard policy signal raises lead to Sol while retaining its thread', async () => {
   const f = await fixture({ ...simple, workflow: 'bug-fix', taskClass: 'bug-fix', signals: ['auth-security'] });
-  const result = await startOrchestrator({ workspace: f.root, requestFile: f.requestFile, spawn: spawnFor(f, []) });
+  const result = await startOrchestrator({ workspace: f.root, requestFile: f.requestFile, authority: 'local-workspace', spawn: spawnFor(f, []) });
   assert.equal(result.phase, 'complete', result.reason);
   assert.equal(result.leadSession.model, 'gpt-5.6-sol');
   assert.equal(result.agents[0].threadId, result.agents[1].threadId);
