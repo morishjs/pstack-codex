@@ -6,13 +6,15 @@ The primary skill is `codex-delegate`. All 23 Poteto playbooks have separate XSt
 
 Prefer Terra medium when creating the main task and the caller can select its model before the first turn. A loaded skill cannot silently replace the current turn's model, so Codex Delegate starts work immediately and never inserts a same-thread model-handoff pause. Role-specific model selection still applies to delegated planning, implementation, and review.
 
+The default team is one retained worker and one independent reviewer, not one new agent per phase. All 23 playbook step graphs remain. The shared [review ledger](skills/codex-delegate/references/retained-team.md) links findings to frozen requirements, records fixes, reuses checks whose declared inputs remain unchanged, and gates completion on independent approval. Additional source-required panels/lanes need explicit reasons. Existing separate-author executor runs remain supported as opt-in legacy execution.
+
 Install it:
 
 ```sh
 python3 install.py --skill codex-delegate
 ```
 
-Start new work with `orchestrator.mjs intake --request-file ORIGINAL --out ABS`, then `start --workspace ABS --request-file ORIGINAL --intent-file ABS/intent.json`. Intake freezes the requested outcome before selecting a playbook. The operator-configured bug-report default is fix, verify, PR and passing CI; explicit report-only, plan-only and no-PR restrictions override it. Set `task-policy.json` to `report` or `verified-change` without that standing PR authorization. Resume retains the existing goal and evidence. Drive `next`, perform the actual action, and `record` its evidence. Investigation, prototype, planning, evaluation, monitoring, shipping, and cleanup retain distinct source conditions and completion boundaries. Complex initial planning uses Astra medium; implementation retains Terra/Sol context; independent final review uses fresh Sol medium. The existing nine-route code executor remains available as `start --code-phase` for code substeps and legacy runs.
+Start new work with `orchestrator.mjs intake --request-file ORIGINAL --out ABS`, then `start --workspace ABS --request-file ORIGINAL --intent-file ABS/intent.json`. Intake freezes the requested outcome before selecting a playbook. The operator-configured bug-report default is fix, verify, PR and passing CI; explicit report-only, plan-only and no-PR restrictions override it. Set `task-policy.json` to `report` or `verified-change` without that standing PR authorization. Resume retains the existing goal and evidence. Drive `next`, perform the actual action, and `record` its evidence. Investigation, prototype, planning, evaluation, monitoring, shipping, and cleanup retain distinct source conditions and completion boundaries. Registered independent planning specialists can use Astra medium; the retained reviewer uses Sol medium. The nine-route executor remains available as `start --code-phase` only for explicit isolation requirements and legacy runs.
 
 `python3 sync_playbooks.py --check` verifies the bundled source against all tracked original files. Deterministic tests validate machine behavior; they do not prove that every playbook has executed real models, browsers, GitHub operations, or production actions.
 

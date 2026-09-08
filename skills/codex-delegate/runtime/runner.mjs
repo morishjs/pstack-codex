@@ -109,6 +109,7 @@ const SNAPSHOT_EXCLUSIONS = new Set([
   "coverage",
   "dist",
   ".cache",
+  ".pnpm-store",
   "tsconfig.tsbuildinfo",
 ]);
 function ignoredSourceFiles(root, dir = root, result = []) {

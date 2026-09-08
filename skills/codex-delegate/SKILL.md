@@ -30,11 +30,15 @@ Intake derives grants for report, plan, verified-change, and PR goals. Other spe
 
 ## Drive the selected machine
 
+Use [the retained team protocol](references/retained-team.md). The default worker is the current main thread (Terra medium preferred when selectable); it owns investigation, design, acceptance, implementation and verification without new sessions at each phase. Bind one independent Sol medium reviewer at the first review and resume that same reviewer for repairs. Do not spawn an acceptance author or an implementation replacement simply because the phase changed. Source-required independent panels/parallel lanes remain supported with explicit additional-participant records.
+
 1. Call `next --run ABS`. Read the active original clause and its relevant linked guides. The returned generation identifies this attempt.
-2. Perform the active action with actual host tools. Use Astra medium for complex initial investigation, design, and acceptance; retained Terra/Sol context for implementation; fresh Sol medium for independent final review. Preserve source exceptions such as prototypes. A model recommendation is not evidence that the model ran.
-3. For required children, call `child --run ABS --playbook ID` and complete the linked child machine. Evaluate source conditions before choosing conditional alternatives.
+2. Perform the active action with the retained worker and actual host tools. Freeze requirement IDs once with the worker; map verification evidence to those IDs. Use registered Astra planning specialists only when source-required independent design work or a concrete task need warrants one. The reviewer begins independently, then receives the review context on every resumed review. A model recommendation is not evidence that the model ran.
+3. For required children, call `child --run ABS --playbook ID` and complete the linked child machine with the same team. A child playbook is not a new agent. Evaluate source conditions before choosing conditional alternatives.
 4. Write a receipt outside controller state files, then call `record --run ABS --receipt-file ABS`. Include `stepId`, `generation`, `outcome`, and `evidence: [{kind, path}]`; include `data` for declared assertions. Passed steps need all required evidence. `not-applicable` requires a conditional step, concrete reason, and `scope-exclusion` evidence. Report excluded scope separately.
 5. Continue until complete, explicit pause, or an unresolved concrete blocker. Use only declared `retry --run ABS --to STEP --reason TEXT` edges. Preserve completed work and evidence; do not restart or rewrite frozen artifacts to bypass a gate.
+
+For review findings use `team` to record stable IDs, existing requirement IDs, affected files and evidence. Worker marks fixed; only the retained reviewer resolves. Use `repair-finding` for a guarded return to implementation, design, acceptance work or verification. Environment and formatting failures return to verification, never a fresh acceptance-author run. Unrelated improvements remain optional. `next` includes prior findings and reusable/stale checks; pass this context to the reviewer with the actual diff. Reuse evidence only for unchanged declared inputs; include shared callers, configuration and dependency manifests when they affect the check. Independent approval and all required findings must be resolved before typed implementation goals complete.
 
 Starting a run is not completion. Retain the frozen task goal through child playbooks and repairs. PR tasks cannot skip publication or accept pending/failed CI as complete; follow the current-head evidence format returned by `next`. Repair authorized failures and reverify before accepting completion. Keep ownership through terminal evidence. Answer status questions in commentary and continue. Use `pause` and `resume` to retain progress. Never promise a future wake without a real scheduler receipt.
 
@@ -44,7 +48,7 @@ The controller checks order, authority, child completion, hashes, and declared a
 
 ## Reuse the code executor
 
-For an implementation substep, use [the subordinate code runtime](references/runtime.md) with `start --code-phase` when its model policy matches the assigned work. Its completion supplies substep evidence; it cannot complete the parent playbook. Its legacy classifier/model policy remains separate from the host playbook policy. When a specific model is required, use the host's explicit model selection and record the actual assignment.
+The [subordinate code runtime](references/runtime.md) and its separate frozen-test author are opt-in, for an explicit request requiring that isolation. Do not start it for ordinary implementation steps; use the retained worker and team protocol. Existing saved executor runs remain resumable under their original contract. Executor completion can supply evidence but cannot complete a parent playbook or replace its independent review.
 
 Scope paths are literal relative files/directories; `/**` is rejected before model execution. Set `--authority local-workspace` only from existing authorization. Read [worker workspaces](references/worker-workspaces.md) for reused installations and [dependency queues](references/dependency-queue.md) for independent lanes. Use the original bundled plan checker, watcher, and ledger tools when the selected source requires them.
 

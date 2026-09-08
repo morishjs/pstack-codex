@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { resolveIntent, validateIntent, routingPrompt, intake } from './task-intent.mjs';
 import { cases, gradeDecision, gradeRun } from './intent-eval.mjs';
-import { startPlaybook, nextStep, recordStep, startChild, statusPlaybook, pausePlaybook, resumePlaybook, retryStep } from './playbook-controller.mjs';
+import { startPlaybook, nextStep, recordStep, startChild, statusPlaybook, pausePlaybook, resumePlaybook, retryStep, updateTeam } from './playbook-controller.mjs';
 
 const decision = (patch = {}) => ({ kind: 'bug', restriction: 'none', requestedDelivery: 'unspecified', playbook: 'bug-fix', reason: 'Concrete broken calendar', ...patch });
 const policy = { bugReportGoal: 'pr' };
@@ -68,7 +68,9 @@ function setup(t, restriction = 'none') {
   fs.writeFileSync(requestFile, request);
   assert.throws(() => startPlaybook({ workspace, requestFile, playbook: 'investigation' }), /frozen task intent/);
   const taskIntent = resolveIntent(request, decision({ restriction }), policy);
-  return startPlaybook({ workspace, requestFile, playbook: taskIntent.playbook, grants: taskIntent.grants, taskIntent }).run;
+  const run = startPlaybook({ workspace, requestFile, playbook: taskIntent.playbook, grants: taskIntent.grants, taskIntent, workerId: 'fixture-worker' }).run;
+  updateTeam({ run, operation: { type: 'acceptance', actorId: 'fixture-worker', requirements: [{ id: 'calendar', text: 'Preserve requested calendar behavior' }] }, evidence: [{ kind: 'request', path: requestFile }] });
+  return run;
 }
 function receipt(run, outcome = 'passed', override = {}) {
   const current = nextStep(run);
@@ -109,7 +111,17 @@ test('PR task cannot finish after investigation, skip publication or accept pend
   recordStep(receipt(child));
   recordStep(receipt(child, 'not-applicable'));
   recordStep(receipt(child));
-  recordStep(receipt(run)); recordStep(receipt(run));
+  recordStep(receipt(run));
+  assert.throws(() => recordStep(receipt(run)), /independent review/);
+  const teamProof = receipt(run).evidence;
+  const team = operation => updateTeam({ run, operation, evidence: teamProof });
+  const hostFile = path.join(run, 'artifacts', 'reviewer-host.json');
+  fs.writeFileSync(hostFile, JSON.stringify({ agentId: 'fixture-reviewer', parentAgentId: 'fixture-worker', independent: true, model: 'fixture-model', reasoningEffort: 'medium' }));
+  teamProof.push({ kind: 'host-assignment', path: hostFile });
+  team({ type: 'assign', role: 'reviewer', agentId: 'fixture-reviewer' });
+  team({ type: 'verify', actorId: 'fixture-worker', id: 'calendar', requirementIds: ['calendar'], inputFiles: ['request.md'] });
+  team({ type: 'approve', actorId: 'fixture-reviewer', inputFiles: ['request.md'] });
+  recordStep(receipt(run));
   assert.equal(statusPlaybook(run).completed, true);
 });
 

@@ -39,6 +39,15 @@ test('public CLI selects a playbook, preserves pause, rejects stale receipts and
     assert.equal(call('start', '--workspace', workspace, '--request-file', request, '--playbook', 'investigation').status, 1);
     let current = json('start', '--workspace', workspace, '--request-file', request, '--intent-file', intentFile);
     const run = current.run;
+    const worker = current.reviewContext.worker ?? 'cli-worker';
+    const operationFile = path.join(workspace, 'team-operation.json');
+    fs.writeFileSync(operationFile, JSON.stringify({ operation: { type: 'assign', role: 'worker', agentId: worker } }));
+    assert.equal(json('team', '--run', run, '--operation-file', operationFile).worker, worker);
+    const hostFile = path.join(workspace, 'reviewer-host.json');
+    fs.writeFileSync(hostFile, JSON.stringify({ agentId: 'cli-reviewer', parentAgentId: worker, independent: true, model: 'fixture-model', reasoningEffort: 'medium' }));
+    fs.writeFileSync(operationFile, JSON.stringify({ operation: { type: 'assign', role: 'reviewer', agentId: 'cli-reviewer' }, evidence: [{ kind: 'host-assignment', path: hostFile }] }));
+    assert.equal(json('team', '--run', run, '--operation-file', operationFile).participantCount, 2);
+    assert.equal(json('next', '--run', run).reviewContext.reviewer, 'cli-reviewer');
     assert.equal(current.completed, false);
     const passiveWait = call('wait', '--run', run, '--timeout-ms', '60000');
     assert.equal(passiveWait.status, 1);

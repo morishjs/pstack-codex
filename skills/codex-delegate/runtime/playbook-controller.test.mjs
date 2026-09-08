@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { PLAYBOOKS, getPlaybook } from './playbook-catalog.mjs';
 import { resolveIntent } from './task-intent.mjs';
-import { compilePlaybook, startPlaybook, nextStep, recordStep, retryStep, startChild, resumePlaybook, statusPlaybook, pausePlaybook } from './playbook-controller.mjs';
+import { transition } from 'xstate';
+import { compilePlaybook, startPlaybook, nextStep, recordStep, retryStep, startChild, resumePlaybook, statusPlaybook, pausePlaybook, updateTeam } from './playbook-controller.mjs';
 
 const all = Object.keys(PLAYBOOKS).map(getPlaybook);
 const grants = [...new Set(all.flatMap(p => p.steps.flatMap(s => Array.isArray(s.authority) ? s.authority : [s.authority])))];
@@ -14,7 +15,7 @@ function fixture(t, playbook = all[0].id, allowed = grants) {
   t.after(() => fs.rmSync(workspace, { recursive: true, force: true }));
   const requestFile = path.join(workspace, 'input.md'); fs.writeFileSync(requestFile, 'Host task');
   const taskIntent = resolveIntent('Host task', { kind: 'other', restriction: 'none', requestedDelivery: 'unspecified', playbook, reason: 'Controller-only fixture for a specialized playbook' });
-  return startPlaybook({ workspace, playbook, requestFile, grants: allowed, taskIntent }).run;
+  return startPlaybook({ workspace, playbook, requestFile, grants: allowed, taskIntent, workerId: 'fixture-worker' }).run;
 }
 function evidence(run, kinds) {
   return kinds.map(kind => {
@@ -30,10 +31,26 @@ function pass(run, { skip = true } = {}) {
     const child = startChild({ run, playbook: typeof invocation === 'string' ? invocation : invocation.playbook });
     finish(child.run);
   }
+  const data = Object.fromEntries((step.assertions ?? []).map(a => [a.field, a.equals]));
+  const proof = evidence(run, skip && step.when ? ['scope-exclusion'] : step.evidence);
+  if (step.panelRequirement && !(skip && step.when)) {
+    if (step.panelRequirement.optional) { data.panel = { skipped: true, reason: 'Source permits single design in this fixture' }; proof.push(...evidence(run, ['scope-exclusion'])); }
+    else {
+      const memberIds = [];
+      for (let i = 0; i < step.panelRequirement.minimum; i++) {
+        const agentId = `${current.playbook}-${step.id}-${i}`; memberIds.push(agentId);
+        if (!current.reviewContext.specialists.some(member => member.agentId === agentId)) {
+          const [receipt] = evidence(run, ['host-assignment']);
+          fs.writeFileSync(receipt.path, JSON.stringify({ agentId, parentAgentId: current.reviewContext.worker, independent: true, model: `fixture-${step.id}-${i}`, modelFamily: `fixture-${step.id}`, reasoningEffort: 'medium' }));
+          updateTeam({ run, operation: { type: 'assign', role: 'specialist', agentId, sourceClause: `${current.playbook}/${step.id}`, reason: 'Synthetic source panel' }, evidence: [receipt] });
+        }
+      }
+      data.panel = { expectedCount: memberIds.length, memberIds };
+    }
+  }
   return recordStep({ run, stepId: step.id, generation: current.generation,
     outcome: skip && step.when ? 'not-applicable' : 'passed', reason: 'Host confirmed the conditional branch is outside this request',
-    data: Object.fromEntries((step.assertions ?? []).map(a => [a.field, a.equals])),
-    evidence: evidence(run, skip && step.when ? ['scope-exclusion'] : step.evidence) });
+    data, evidence: proof });
 }
 function finish(run) {
   for (let i = 0; i < 100; i++) { if (statusPlaybook(run).status === 'complete') return; pass(run); }
@@ -49,6 +66,39 @@ test('all 23 playbooks compile unique guarded machines and complete with host re
     const run = fixture(t, manifest.id); finish(run);
     assert.equal(statusPlaybook(run).status, 'complete');
   }
+});
+
+test('every playbook declares valid XState destinations for all repair classes', () => {
+  for (const manifest of all) {
+    const machine = compilePlaybook(manifest);
+    for (const destination of ['implement', 'design', 'acceptance', 'verify']) {
+      assert.ok(manifest.steps.some(step => step.id === manifest.repairStages[destination]), manifest.id);
+      const [next] = transition(machine, machine.resolveState({ value: 'reply', context: {} }), { type: 'REPAIR', destination, findingId: 'existing-finding' });
+      assert.equal(next.value, manifest.repairStages[destination]);
+    }
+  }
+});
+
+test('source-required panels cannot pass without registered participants', t => {
+  const run = fixture(t, 'eval');
+  while (nextStep(run).stepId !== 'candidates') pass(run);
+  const current = nextStep(run);
+  assert.throws(() => recordStep({ run, stepId: current.stepId, generation: current.generation, outcome: 'passed', evidence: evidence(run, current.evidence) }), /source panel/);
+  const assign = (agentId, sourceClause, model, modelFamily) => {
+    const [proof] = evidence(run, ['host-assignment']);
+    fs.writeFileSync(proof.path, JSON.stringify({ agentId, parentAgentId: current.reviewContext.worker, independent: true, model, modelFamily, reasoningEffort: 'medium' }));
+    updateTeam({ run, operation: { type: 'assign', role: 'specialist', agentId, sourceClause, reason: 'Source diversity check' }, evidence: [proof] });
+  };
+  assign('same-a', 'eval/candidates', 'same-model', 'same-family');
+  assign('same-b', 'eval/candidates', 'same-model', 'same-family');
+  assert.throws(() => recordStep({ run, stepId: current.stepId, generation: current.generation, outcome: 'passed', data: { panel: { expectedCount: 2, memberIds: ['same-a', 'same-b'] } }, evidence: evidence(run, current.evidence) }), /required evidence/);
+  pass(run);
+  assert.equal(nextStep(run).stepId, 'judge');
+  assign('same-family-judge', 'eval/judge', 'other-model', 'fixture-candidates');
+  const judge = nextStep(run);
+  assert.throws(() => recordStep({ run, stepId: judge.stepId, generation: judge.generation, outcome: 'passed', data: { panel: { expectedCount: 1, memberIds: ['same-family-judge'] } }, evidence: evidence(run, judge.evidence) }), /required evidence/);
+  pass(run);
+  assert.equal(nextStep(run).stepId, 'transcripts');
 });
 
 test('every conditional step independently accepts its applicable branch with required children', t => {
@@ -109,10 +159,11 @@ test('autopilot hold pauses immediately and cannot resume before owner acknowled
 
 test('next exposes source paths and model recommendations without invoking models', t => {
   const run = fixture(t); const current = nextStep(run);
-  assert.equal(current.modelPolicy.planning, 'gpt-6-astra');
-  assert.equal(current.modelPolicy.implementation, 'gpt-5.6-terra');
+  assert.equal(current.modelPolicy.planning, 'retained-worker');
+  assert.equal(current.modelPolicy.implementation, 'retained-worker');
+  assert.equal(current.modelPolicy.workerPreference, 'gpt-5.6-terra');
   assert.equal(current.modelPolicy.review, 'gpt-5.6-sol');
-  assert.equal(current.modelPolicy.reviewSession, 'fresh');
+  assert.equal(current.modelPolicy.reviewSession, 'independent-first-then-resume');
   for (const file of [current.source, current.runtimeGuide, current.executionPolicy, current.requestFile]) assert.ok(fs.statSync(file).isFile());
   assert.equal(current.role, getPlaybook(current.playbook).steps[0].role);
 });

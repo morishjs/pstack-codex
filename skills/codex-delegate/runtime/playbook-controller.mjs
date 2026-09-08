@@ -6,6 +6,7 @@ import { createMachine, transition } from 'xstate';
 import { getPlaybook } from './playbook-catalog.mjs';
 import { validateIntent } from './task-intent.mjs';
 import { assessRecovery, recoveryInstructions } from './recovery-action.mjs';
+import { newReviewCycle, reviewContext, updateReviewCycle, repairDestination } from './review-cycle.mjs';
 
 const runtime = path.dirname(fileURLToPath(import.meta.url));
 const bundle = path.resolve(runtime, '../poteto');
@@ -23,7 +24,7 @@ function sourceHashes() {
     if (!inside(bundle, file) || hash(file) !== entry.sha256) fail(`bundled source drift: ${entry.target}`);
     sources[file] = entry.sha256;
   }
-  for (const file of [manifestFile, fileURLToPath(import.meta.url), path.join(runtime, 'playbook-catalog.mjs'), path.join(runtime, 'task-intent.mjs'), path.join(runtime, 'recovery-action.mjs'), path.resolve(runtime, '../references/playbook-execution.md')]) sources[file] = hash(file);
+  for (const file of [manifestFile, fileURLToPath(import.meta.url), path.join(runtime, 'playbook-catalog.mjs'), path.join(runtime, 'task-intent.mjs'), path.join(runtime, 'recovery-action.mjs'), path.join(runtime, 'review-cycle.mjs'), path.resolve(runtime, '../references/playbook-execution.md')]) sources[file] = hash(file);
   return sources;
 }
 function authorities(step) { return array(step.authority).filter(a => a !== 'read-only'); }
@@ -39,8 +40,26 @@ function taskManifest(playbook, intent) {
   };
 }
 function authorized(state, step) { return authorities(step).every(a => state.grants.includes(a)); }
+function repairTarget(manifest, destination) {
+  return manifest.repairStages?.[destination];
+}
 function receiptAllowed(state, step, receipt) {
   if (receipt.stepId !== step.id || !['passed', 'not-applicable'].includes(receipt.outcome)) return false;
+  if (receipt.outcome === 'passed' && step.panelRequirement) {
+    if (!receipt.panel) return false;
+    if (receipt.panel.skipped) {
+      if (!step.panelRequirement.optional || !receipt.panel.reason?.trim() || !receipt.evidence.some(item => item.kind === 'scope-exclusion')) return false;
+    } else {
+      if (!Number.isInteger(receipt.panel.expectedCount) || receipt.panel.expectedCount < step.panelRequirement.minimum
+        || receipt.panel.members?.length !== receipt.panel.expectedCount || new Set(receipt.panel.members.map(m => m.agentId)).size !== receipt.panel.expectedCount) return false;
+      for (const member of receipt.panel.members) for (const proof of member.evidence ?? []) if (hash(proof.path) !== proof.sha256) return false;
+      if (state.playbook === 'eval' && step.id === 'candidates' && new Set(receipt.panel.members.map(member => member.model)).size !== receipt.panel.members.length) return false;
+      if (state.playbook === 'eval' && step.id === 'judge') {
+        const candidates = state.receipts.find(item => item.stepId === 'candidates')?.panel?.members;
+        if (!candidates?.length || candidates.some(member => !member.modelFamily) || receipt.panel.members.some(member => !member.modelFamily || candidates.some(candidate => candidate.modelFamily === member.modelFamily))) return false;
+      }
+    }
+  }
   const goal = state.taskIntent?.goal;
   if (goal === 'pr' && state.playbook === 'opening-a-pr' && ['commit', 'publish', 'ci'].includes(step.id)) {
     if (receipt.outcome !== 'passed') return false;
@@ -75,13 +94,15 @@ export function compilePlaybook(manifest) {
     states: Object.fromEntries([...manifest.steps.map((s, i) => [s.id, { on: {
       RECORD: { target: manifest.steps[i + 1]?.id ?? 'complete', guard: ({ event }) => guardedReceipt(event.state, s, event.receipt) },
       RETRY: array(manifest.loops).filter(l => l.from === s.id).map(l => ({ target: l.to, guard: ({ event }) => event.to === l.to && Boolean(event.reason?.trim()) })),
+      REPAIR: ['implement', 'design', 'acceptance', 'verify'].map(destination => ({ destination, target: repairTarget(manifest, destination) })).filter(edge => edge.target).map(edge => ({ target: edge.target,
+        guard: ({ event }) => event.destination === edge.destination && Boolean(event.findingId) })),
     } }]), ['complete', { type: 'final' }]]),
   });
 }
 function advance(manifest, state, event) {
   const machine = compilePlaybook(manifest);
   const [next] = transition(machine, machine.resolveState({ value: state.stepId, context: {} }), event);
-  if (next.value === state.stepId && event.type !== 'RETRY') fail('step transition rejected');
+  if (next.value === state.stepId && !['RETRY', 'REPAIR'].includes(event.type)) fail('step transition rejected');
   return next.value;
 }
 function save(run, state, event) {
@@ -136,6 +157,8 @@ function load(run, seen = new Set()) {
   }
   if (state.stepId !== expected) fail('state order drift');
   if (state.status === 'complete' && (state.stepId !== 'complete' || state.receipts.filter(r => r.outcome !== 'blocked').length !== manifest.steps.length)) fail('invalid completion');
+  if (state.status === 'complete' && !state.parent && state.reviewCycle && ['pr', 'verified-change'].includes(state.taskIntent?.goal)
+    && !reviewContext(state.reviewCycle, state.workspace).approved) fail('completed review inputs changed or review is incomplete');
   return { state, manifest };
 }
 function invocations(step) { return array(step.invokes).map(i => typeof i === 'string' ? i : i.playbook); }
@@ -145,7 +168,7 @@ function validateChild(state, stepId, child, seen = new Set(), requireComplete =
   if (requireComplete && other.status !== 'complete') fail(`required child incomplete: ${child.playbook}`);
   return { playbook: child.playbook, run: child.run, status: other.status };
 }
-function createRun({ workspace, playbook, requestFile, grants = ['read-only'], taskIntent, parent, depth = 0 }) {
+function createRun({ workspace, playbook, requestFile, grants = ['read-only'], taskIntent, parent, depth = 0, workerId = process.env.CODEX_THREAD_ID ?? null }) {
   workspace = fs.realpathSync(workspace);
   if (depth > 8) fail('child depth limit');
   if (!Array.isArray(grants) || grants.some(g => !knownGrants.includes(g))) fail(`grants must be one of: ${knownGrants.join(', ')}`);
@@ -160,7 +183,7 @@ function createRun({ workspace, playbook, requestFile, grants = ['read-only'], t
   const state = { version: 1, kind: 'playbook', run, workspace, playbook: manifest.id, grants, taskIntent, parent, depth, sources,
     manifestHash: createHash('sha256').update(JSON.stringify(manifest)).digest('hex'),
     requestHash: hash(path.join(run, 'request.md')), stepId: manifest.steps[0].id,
-    status: 'active', generation: 1, activatedAt: Date.now(), receipts: [], history: [], children: {} };
+    status: 'active', generation: 1, activatedAt: Date.now(), receipts: [], history: [], children: {}, reviewCycle: newReviewCycle(workerId, workspace) };
   save(run, state, { type: 'start', playbook });
   return { run, ...statusPlaybook(run) };
 }
@@ -172,6 +195,27 @@ export function statusPlaybook(run) {
     completedSteps: state.receipts.filter(r => r.outcome === 'passed').map(r => r.stepId),
     skippedSteps: state.receipts.filter(r => r.outcome === 'not-applicable').map(({ stepId, reason, evidence }) => ({ stepId, reason, evidence })),
     ...(state.holdPending ? { holdRequired: { instruction: 'Immediately propagate zero-writes hold to every owner; record all owner acknowledgments before resuming.', evidence: ['hold-acknowledgments'] } } : {}) };
+}
+function cycleRoot(state) {
+  let current = state;
+  const seen = new Set();
+  while (current.parent) {
+    if (seen.has(current.run) || seen.size > 8) fail('invalid team parent chain');
+    seen.add(current.run); current = load(current.parent.run).state;
+  }
+  return current;
+}
+export function updateTeam({ run, operation, evidence = [] }) {
+  const root = cycleRoot(load(run).state);
+  return locked(root.run, rootRun => {
+    const { state } = load(rootRun);
+    if (['complete', 'paused'].includes(state.status)) fail('team cannot change in a completed or paused task');
+    state.reviewCycle ??= newReviewCycle();
+    const proof = validateEvidence(state, evidence);
+    updateReviewCycle(state.reviewCycle, state.workspace, operation, proof);
+    save(rootRun, state, { type: 'team', operation: operation.type, actorId: operation.actorId ?? operation.agentId });
+    return reviewContext(state.reviewCycle, state.workspace);
+  });
 }
 export function nextStep(run) {
   return locked(run, run => {
@@ -185,12 +229,14 @@ export function nextStep(run) {
     }
     if (state.status === 'blocked') return statusPlaybook(run);
     return { ...statusPlaybook(run), instruction: step.instruction, sourceSteps: step.sourceSteps,
+      execution: { mode: 'retained-worker-and-reviewer', instruction: 'Keep one worker through investigation, design, acceptance, implementation and verification. Reuse one independent reviewer for revisions. A child playbook is a workflow, not a request to spawn another agent. Register extra source-required panel/parallel participants with clause, reason and evidence. Formatting/environment repairs do not revise acceptance. Native tools perform work; team commands only record identities and evidence.' },
+      reviewContext: reviewContext(cycleRoot(state).reviewCycle ?? newReviewCycle(), state.workspace),
       source: path.resolve(runtime, '..', manifest.source), sourceRoot: bundle, runtime, runtimeGuide: path.join(bundle, 'runtime.md'), executionPolicy: path.resolve(runtime, '../references/playbook-execution.md'), requestFile: path.join(run, 'request.md'),
-      evidence: step.evidence, assertions: step.assertions, role: step.role, authority: step.authority, when: step.when,
+      evidence: step.evidence, assertions: step.assertions, role: step.role, authority: step.authority, when: step.when, panelRequirement: step.panelRequirement,
       retries: array(manifest.loops).filter(edge => edge.from === step.id),
       recoveryInstructions,
       taskRequirements: state.taskIntent?.goal === 'pr' ? 'Retain the task through implementation, verification, PR publication and passed CI. Do not skip required delivery. For opening-a-pr/ci supply ci-status JSON {status:"passed",headSha:<40-char SHA>,prUrl:<https URL>} from actual current-head checks. Pending or failed CI is unfinished; repair within scope and reverify before recording.' : undefined,
-      modelPolicy: { planning: 'gpt-6-astra', implementation: 'gpt-5.6-terra', review: 'gpt-5.6-sol', reasoning: 'medium', reviewSession: 'fresh' },
+      modelPolicy: { workerPreference: 'gpt-5.6-terra', planning: 'retained-worker', implementation: 'retained-worker', specialistPlanning: 'gpt-6-astra', review: 'gpt-5.6-sol', reasoning: 'medium', reviewSession: 'independent-first-then-resume', workerSession: 'retain-across-phases' },
       requiredChildren: invocations(step).map(playbook => {
         const child = array(state.children[step.id]).find(c => c.playbook === playbook);
         return child ? validateChild(state, step.id, child) : { playbook, status: 'not-started' };
@@ -206,16 +252,33 @@ export function recordStep({ run, stepId, generation, outcome, reason, evidence 
     if (!['passed', 'not-applicable', 'blocked'].includes(outcome)) fail('invalid outcome');
     if (state.status === 'blocked' && !(outcome === 'not-applicable' && step.when && !authorized(state, step))) fail('resume blocked step before recording');
     if (outcome === 'blocked' && !reason?.trim()) fail('blocked outcome needs reason');
+    if (outcome === 'passed' && step.role === 'implementer' && ['pr', 'verified-change'].includes(state.taskIntent?.goal)
+      && !cycleRoot(state).reviewCycle?.requirements.length) fail('freeze acceptance with the retained worker before implementation');
     const recoveryAssessment = recoveryAction ? assessRecovery(state, recoveryAction) : undefined;
     if (outcome === 'blocked' && recoveryAssessment?.decision === 'continue') fail('recoverable local action: execute recovery and verification instead of requesting approval or recording a blocker');
     const receipt = { stepId, generation, outcome, reason, data, recoveryAction, recoveryAssessment, activatedAt: state.activatedAt, evidence: validateEvidence(state, evidence), at: Date.now() };
     if (outcome !== 'blocked') {
+      if (outcome === 'passed' && step.panelRequirement) {
+        const plan = data?.panel;
+        if (step.panelRequirement.optional && plan?.skipped === true && plan.reason?.trim() && receipt.evidence.some(item => item.kind === 'scope-exclusion')) receipt.panel = plan;
+        else {
+          const team = cycleRoot(state).reviewCycle;
+          const eligible = [...(team?.specialists ?? []).filter(member => member.sourceClause === `${state.playbook}/${step.id}`), ...(step.panelRequirement.includeReviewer && team?.reviewer ? [{ agentId: team.reviewer, evidence: team.reviewerEvidence, ...team.reviewerModel }] : [])];
+          if (!Number.isInteger(plan?.expectedCount) || plan.expectedCount < step.panelRequirement.minimum || !Array.isArray(plan.memberIds)
+            || new Set(plan.memberIds).size !== plan.memberIds.length || plan.memberIds.length !== plan.expectedCount) fail('source panel needs its configured participant count and distinct IDs');
+          const members = plan.memberIds.map(agentId => eligible.find(member => member.agentId === agentId));
+          if (members.some(member => !member)) fail('source panel members must be registered independent participants');
+          receipt.panel = { ...plan, members };
+        }
+      }
       if (!receiptAllowed(state, step, receipt)) fail('receipt lacks required evidence, authority, or conditional scope');
       receipt.children = outcome === 'passed' ? invocations(step).map(playbook => {
         const child = array(state.children[stepId]).find(c => c.playbook === playbook);
         if (!child) fail(`required child missing: ${playbook}`);
         validateChild(state, stepId, child, new Set([run]), true); return child;
       }) : [];
+      if (!state.parent && state.reviewCycle && manifest.steps.at(-1).id === stepId && ['pr', 'verified-change'].includes(state.taskIntent?.goal)
+        && !reviewContext(state.reviewCycle, state.workspace).approved) fail('independent review missing, stale, or has unresolved findings');
       state.stepId = advance(manifest, state, { type: 'RECORD', state, receipt });
       state.status = state.stepId === 'complete' ? 'complete' : 'active'; state.generation++; state.activatedAt = Date.now(); delete state.reason;
     } else { state.status = 'blocked'; state.reason = reason; }
@@ -269,6 +332,30 @@ export function retryStep({ run, to, reason }) {
     save(run, state, { type: 'retry', to, reason }); return statusPlaybook(run);
   });
 }
+export function repairFinding({ run, findingId }) {
+  return locked(run, run => {
+    const { state, manifest } = load(run);
+    if (['complete', 'paused'].includes(state.status)) fail('repair needs an unfinished active task');
+    const root = cycleRoot(state);
+    const destination = repairDestination(root.reviewCycle ?? newReviewCycle(), findingId);
+    if (destination === 'defer') fail('optional improvement does not restart required work');
+    const to = repairTarget(manifest, destination);
+    if (!to) fail('selected playbook has no matching repair stage');
+    const target = manifest.steps.find(step => step.id === to);
+    if (!authorized(state, target)) fail('repair does not grant new authority');
+    const index = manifest.steps.findIndex(step => step.id === to);
+    if (index > manifest.steps.findIndex(step => step.id === state.stepId)) fail('repair cannot skip forward');
+    const invalid = new Set(manifest.steps.slice(index).map(step => step.id));
+    state.history.push(...state.receipts.filter(receipt => invalid.has(receipt.stepId)));
+    state.receipts = state.receipts.filter(receipt => !invalid.has(receipt.stepId));
+    for (const id of invalid) { if (state.children[id]) state.history.push({ type: 'repair-children', stepId: id, children: state.children[id] }); delete state.children[id]; }
+    state.stepId = advance(manifest, state, { type: 'REPAIR', destination, findingId });
+    state.status = 'active'; state.generation++; delete state.reason;
+    save(run, state, { type: 'finding-repair', findingId, destination, to });
+    return nextStepUnlocked(state);
+  });
+}
+function nextStepUnlocked(state) { return { ...statusPlaybook(state.run), reviewContext: reviewContext(cycleRoot(state).reviewCycle ?? newReviewCycle(), state.workspace) }; }
 export function startChild({ run, playbook }) {
   return locked(run, run => {
     const { state, manifest } = load(run);
@@ -295,8 +382,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       next: () => nextStep(options.run), status: () => statusPlaybook(options.run), resume: () => resumePlaybook(options.run),
       record: () => recordStep({ ...read(options['receipt-file']), run: options.run }),
       child: () => startChild(options), retry: () => retryStep(options), pause: () => pausePlaybook({ ...options, ...(options['receipt-file'] ? read(options['receipt-file']) : {}), run: options.run }),
+      team: () => updateTeam({ ...read(options['operation-file']), run: options.run }),
+      'repair-finding': () => repairFinding({ run: options.run, findingId: options['finding-id'] }),
     };
-    if (!commands[command]) fail('expected start|next|status|record|child|retry|resume|pause');
+    if (!commands[command]) fail('expected start|next|status|record|child|retry|resume|pause|team|repair-finding');
     const result = commands[command]();
     console.log(JSON.stringify(result, null, 2));
     if (result.status === 'blocked') process.exitCode = 1;

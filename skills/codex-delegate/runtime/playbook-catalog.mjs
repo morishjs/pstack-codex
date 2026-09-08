@@ -337,6 +337,43 @@ for (const [id, assignments] of Object.entries(roleAssignments)) {
   }
 }
 
+// Repair destinations belong to the playbook, not to guessed step-name conventions.
+const repairStages = {
+  'authoring-a-skill': ['author', 'author', 'author', 'validate'],
+  'autonomous-run': ['iterate', 'predicate', 'predicate', 'exit'],
+  'autopilot-full': ['build', 'owners', 'operator-gates', 'owner-proof'],
+  'autopilot-stack': ['build', 'owner-loop', 'operator-gates', 'proof'],
+  babysit: ['repair', 'frontier', 'mode', 'poll'],
+  'bug-fix': ['fix', 'cause', 'fix', 'verify'],
+  eval: ['candidates', 'frame', 'frame', 'judge'],
+  feature: ['implement', 'design', 'implement', 'verify'],
+  hillclimb: ['attempt', 'hypothesis', 'workload', 'pivot'],
+  investigation: ['answer', 'route', 'route', 'unslop'],
+  'multi-phase-plan': ['write', 'explore', 'verification-contract', 'validate'],
+  'opening-a-pr': ['verify', 'scope', 'scope', 'verify'],
+  orchestrate: ['drain', 'brief', 'frame', 'verify'],
+  'pause-safely': ['durable', 'boundary', 'boundary', 'resume-note'],
+  'perf-issue': ['implement', 'hypotheses', 'baseline', 'compare'],
+  prototype: ['scratch', 'decision', 'decision', 'observe'],
+  refactoring: ['subtract', 'target', 'pin', 'equivalence'],
+  'runtime-forensics': ['reduce', 'mechanism', 'capture', 'checkpoint'],
+  'session-pickup': ['route', 'resume-point', 'trail', 'verify-inherited'],
+  shipping: ['prepare-local', 'ceiling', 'verify', 'watch'],
+  'trace-forensics': ['shape', 'narrow', 'load', 'paired'],
+  'visual-parity': ['migrate', 'anti-shortcut', 'baseline', 'pixel-diff'],
+  'worktree-cleanup': ['audit', 'pinned', 'loss-gate', 'usage'],
+};
+for (const [id, [implement, design, acceptance, verify]] of Object.entries(repairStages)) {
+  PLAYBOOKS[id].repairStages = { implement, design, acceptance, verify };
+}
+for (const [id, stepId, minimum, optional, includeReviewer] of [
+  ['feature', 'design', 2, true, false],
+  ['eval', 'candidates', 2, false, false], ['eval', 'judge', 1, false, true],
+  ['autopilot-full', 'swarm', 2, false, true], ['autopilot-stack', 'swarm', 2, false, true],
+]) {
+  PLAYBOOKS[id].steps.find(step => step.id === stepId).panelRequirement = { minimum, optional, includeReviewer };
+}
+
 export function getPlaybook(id) {
   const playbook = PLAYBOOKS[id];
   if (!playbook) throw new Error(`Unknown playbook: ${id}`);

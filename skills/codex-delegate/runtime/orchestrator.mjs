@@ -272,6 +272,12 @@ export async function resume({ run, retry = false, ...options }) {
 }
 async function main() {
   try { const [command, ...args] = process.argv.slice(2); const value = (key) => cliValue(args, key); let state;
+    if (command === 'team' || command === 'repair-finding') {
+      const controller = await import('./playbook-controller.mjs');
+      const result = command === 'team' ? controller.updateTeam({ ...readJson(value('--operation-file')), run: value('--run') })
+        : controller.repairFinding({ run: value('--run'), findingId: value('--finding-id') });
+      console.log(JSON.stringify(result, null, 2)); return;
+    }
     if (command === 'recovery') {
       const { assessRecovery } = await import('./recovery-action.mjs');
       console.log(JSON.stringify(assessRecovery(await status(value('--run')), readJson(value('--action-file'))), null, 2)); return;

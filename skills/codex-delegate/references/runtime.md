@@ -1,5 +1,7 @@
 # Subordinate code runtime
 
+This separate-author frozen-test executor is opt-in for explicit isolation requirements and legacy runs. New ordinary tasks use the retained worker/reviewer protocol; do not start this executor merely because implementation begins.
+
 Use this executor only for a code substep of the selected playbook. It creates a session under `<workspace>/.codex-delegate/sessions/`, invokes read-only classification, investigation, and design phases as needed, then hands code work to its internal nested runner. New top-level tasks use `start --playbook` and the host-driven controller described in [playbook execution](playbook-execution.md).
 
 ## Commands

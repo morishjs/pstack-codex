@@ -27,7 +27,7 @@ if(m==='gpt-5.6-terra') writeFileSync('app.mjs','export const app = 1;');
 if(m==='gpt-5.6-terra'&&mode==='syntax') writeFileSync('app.mjs','export const app = ;');
 if(m==='gpt-5.6-terra'&&mode==='frozen') writeFileSync('check.mjs','console.log("BASE PASS")// changed'); if(m==='gpt-5.6-sol'&&mode==='review-mutate') writeFileSync('app.mjs','export const app = 2;');
 if(m==='gpt-5.6-terra'&&mode==='partial-worker') {writeFileSync('app.mjs','export const app = 3;'); process.exit(1);}
-if(m==='gpt-5.6-sol'&&mode==='review-cache') {mkdirSync('.cache',{recursive:true});writeFileSync('.cache/result','cache');}
+if(m==='gpt-5.6-sol'&&mode==='review-cache') {mkdirSync('.cache',{recursive:true});writeFileSync('.cache/result','cache');mkdirSync('.pnpm-store',{recursive:true});writeFileSync('.pnpm-store/result','cache');}
 if(m==='gpt-5.6-sol'&&mode==='review-test') writeFileSync('check.mjs','console.log("PASS")');
 if(mode==='slow') await new Promise(resolve=>setTimeout(resolve,100));
 const c=m==='gpt-6-astra'?{status:'ready',reason:'fixture',requirements:[{id:'R1',description:'works',checkIds:${missingIds ? "[]" : "['C1']"}}],checks:[{id:'C1',argv:['node','check.mjs'],testFiles:['check.mjs'],baseline:'${baselinePass ? 'pass' : 'fail'}',baselineMarker:'${missingMarker ? "MISSING" : "BASE"}',passMarker:'PASS'}],implementationPaths:['app.mjs']} : m==='gpt-5.6-terra'?{status:'done',summary:'done'}:{status:mode==='review-env'?'blocked':mode==='review-repair'||(mode??'').startsWith('review-contract')?'changes_requested':'pass',nextAction:mode==='review-env'?'environment_repair':(mode??'').startsWith('review-contract')?'contract_revision':'repair',requirements:mode==='review-omit'?[]:[{id:'R1',status:mode==='review-contract-blocked'||mode==='review-env'?'blocked':'pass',evidence:'check'}],findings:mode==='review-repair'||(mode??'').startsWith('review-contract')?['repair requested']:[]}; if(m==='gpt-6-astra'&&${secondCheck}) {c.checks.push({...c.checks[0],id:'C2',argv:['node','check.mjs','C2']});c.requirements[0].checkIds.push('C2');} writeFileSync(out,JSON.stringify(c)); console.log(JSON.stringify({type:'turn.completed',thread_id:randomUUID()}));`,
@@ -518,6 +518,7 @@ test("reviewer may create untracked cache but cannot edit frozen tests", async (
   const s = await start({ workspace: f.root, requestFile: f.requestFile, spawn: fakeSpawn(f, "review-cache") });
   assert.equal(s.phase, "complete", s.reason);
   assert(existsSync(path.join(f.root, ".cache/result")));
+  assert(existsSync(path.join(f.root, ".pnpm-store/result")));
   const f2 = await fixture();
   const blocked = await start({ workspace: f2.root, requestFile: f2.requestFile, spawn: fakeSpawn(f2, "review-test") });
   assert.equal(blocked.phase, "blocked");
