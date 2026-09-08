@@ -5,20 +5,24 @@ description: Execute the complete Poteto playbook library through per-playbook X
 
 # Codex Delegate
 
-Select a playbook for every new task. All 23 bundled Poteto playbooks have their own guarded XState step graph. Read [execution policy](references/playbook-execution.md) and the selected original playbook under [the source guide](poteto/GUIDE.md). Do not replace the selected playbook with the generic code executor. The complete source and supporting tools are bundled; `poteto-manifest.json` pins their original bytes.
+Freeze the user's intended outcome before selecting a playbook. All 23 bundled Poteto playbooks have their own guarded XState step graph. Read [execution policy](references/playbook-execution.md) and the selected original playbook under [the source guide](poteto/GUIDE.md). Do not replace the selected playbook with the generic code executor. The complete source and supporting tools are bundled; `poteto-manifest.json` pins their original bytes.
 
 ## Select and start
 
-Match the request to the catalog's entry descriptions. Explain/plan does not authorize implementation. Checking a PR is distinct from driving it; merge-ready is distinct from shipping. Preserve prototype, read-only, pause, and pickup exceptions.
+Copy the actual user request and relevant user-authorized context into a request file. Do not rewrite a bug report into "investigate read-only" or invent "do not modify". Run intake on that original file; inspect its classification and frozen delivery goal before starting. This operator explicitly selected `task-policy.json`'s bug-report default: investigate, fix, verify, publish a scoped PR, and pass CI. A concrete defect phrased "why?" follows that policy. General conceptual questions stay explanatory. Explicit investigation-only, plan-only, no-code, or no-PR limits take precedence. Merge, deploy, messages, and account changes are not covered by the PR default.
+
+If intake misreads the request, correct the classification with direct user-text evidence before starting; never silently lower the goal to bypass work. A later explicit scope change needs a new documented contract referencing the preserved prior run. For simple continuation, use the existing run's `resume` and `next`; do not run intake again or restart the investigation. Checking a PR remains distinct from driving it, and merge-ready from shipping.
 
 ```bash
 node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs playbooks
+node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs intake \
+  --request-file /absolute/original-request.md --out /absolute/task-intake
 node ~/.codex/skills/codex-delegate/runtime/orchestrator.mjs start \
-  --workspace /absolute/workspace --playbook feature \
-  --request-file /absolute/request.md --grants read-only,local-workspace
+  --workspace /absolute/workspace --intent-file /absolute/task-intake/intent.json \
+  --request-file /absolute/original-request.md
 ```
 
-Derive grants from existing user authority. Available grants are `read-only`, `local-workspace`, `remote-write`, `destructive`, and `scheduler`. Grant labels never expand the user's exact scope. Ordinary reversible worktree preparation is local workspace work. Missing authority blocks the affected action; never silently drop a required step or ask again for authority already provided.
+Intake derives grants for report, plan, verified-change, and PR goals. Other specialized playbooks retain the existing exact user authority supplied with `--grants`. Available grants are `read-only`, `local-workspace`, `remote-write`, `destructive`, and `scheduler`. Grant labels never expand the user's exact scope. Ordinary reversible worktree preparation is local workspace work. Missing authority blocks the affected action; never silently drop a required step or ask again for authority already provided.
 
 ## Drive the selected machine
 
@@ -28,7 +32,7 @@ Derive grants from existing user authority. Available grants are `read-only`, `l
 4. Write a receipt outside controller state files, then call `record --run ABS --receipt-file ABS`. Include `stepId`, `generation`, `outcome`, and `evidence: [{kind, path}]`; include `data` for declared assertions. Passed steps need all required evidence. `not-applicable` requires a conditional step, concrete reason, and `scope-exclusion` evidence. Report excluded scope separately.
 5. Continue until complete, explicit pause, or an unresolved concrete blocker. Use only declared `retry --run ABS --to STEP --reason TEXT` edges. Preserve completed work and evidence; do not restart or rewrite frozen artifacts to bypass a gate.
 
-Starting a run is not completion. Keep ownership through terminal evidence. Answer status questions in commentary and continue. Use `pause` and `resume` to retain progress. Never promise a future wake without a real scheduler receipt.
+Starting a run is not completion. Retain the frozen task goal through child playbooks and repairs. PR tasks cannot skip publication or accept pending/failed CI as complete; follow the current-head evidence format returned by `next`. Repair authorized failures and reverify before accepting completion. Keep ownership through terminal evidence. Answer status questions in commentary and continue. Use `pause` and `resume` to retain progress. Never promise a future wake without a real scheduler receipt.
 
 The controller checks order, authority, child completion, hashes, and declared assertions. The host must inspect semantic correctness and actual tool results. A fabricated file or a successful unit test does not establish browser, model, forge, or production execution.
 
@@ -39,3 +43,5 @@ For an implementation substep, use [the subordinate code runtime](references/run
 Scope paths are literal relative files/directories; `/**` is rejected before model execution. Set `--authority local-workspace` only from existing authorization. Read [worker workspaces](references/worker-workspaces.md) for reused installations and [dependency queues](references/dependency-queue.md) for independent lanes. Use the original bundled plan checker, watcher, and ledger tools when the selected source requires them.
 
 Existing code runs remain resumable with their saved status/wait/resume commands. New session-pickup work resumes existing progress rather than rebuilding it.
+
+See [intent evaluation](references/intent-evaluation.md) for deterministic completion tests and the separate live model regression suite.

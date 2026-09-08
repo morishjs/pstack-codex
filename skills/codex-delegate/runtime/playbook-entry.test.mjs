@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { resolveIntent } from './task-intent.mjs';
 
 const cli = fileURLToPath(new URL('./orchestrator.mjs', import.meta.url));
 const call = (...args) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8' });
@@ -24,7 +25,12 @@ test('public CLI selects a playbook, preserves pause, rejects stale receipts and
     assert.equal(missing.status, 1);
     assert.match(missing.stderr, /select --playbook/);
     assert.equal(call('start', '--workspace', workspace, '--request-file', request, '--playbook', 'investigation', '--scope-file', request).status, 1);
-    let current = json('start', '--workspace', workspace, '--request-file', request, '--playbook', 'investigation');
+    const intentFile = path.join(workspace, 'intent.json');
+    fs.writeFileSync(intentFile, JSON.stringify(resolveIntent(fs.readFileSync(request, 'utf8'), {
+      kind: 'explanation', restriction: 'read-only', requestedDelivery: 'unspecified', playbook: 'investigation', reason: 'Explanation only',
+    })));
+    assert.equal(call('start', '--workspace', workspace, '--request-file', request, '--playbook', 'investigation').status, 1);
+    let current = json('start', '--workspace', workspace, '--request-file', request, '--intent-file', intentFile);
     const run = current.run;
     assert.equal(current.completed, false);
     const passiveWait = call('wait', '--run', run, '--timeout-ms', '60000');

@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createMachine, transition } from 'xstate';
 import { getPlaybook } from './playbook-catalog.mjs';
+import { validateIntent } from './task-intent.mjs';
 
 const runtime = path.dirname(fileURLToPath(import.meta.url));
 const bundle = path.resolve(runtime, '../poteto');
@@ -21,13 +22,36 @@ function sourceHashes() {
     if (!inside(bundle, file) || hash(file) !== entry.sha256) fail(`bundled source drift: ${entry.target}`);
     sources[file] = entry.sha256;
   }
-  for (const file of [manifestFile, fileURLToPath(import.meta.url), path.join(runtime, 'playbook-catalog.mjs'), path.resolve(runtime, '../references/playbook-execution.md')]) sources[file] = hash(file);
+  for (const file of [manifestFile, fileURLToPath(import.meta.url), path.join(runtime, 'playbook-catalog.mjs'), path.join(runtime, 'task-intent.mjs'), path.resolve(runtime, '../references/playbook-execution.md')]) sources[file] = hash(file);
   return sources;
 }
 function authorities(step) { return array(step.authority).filter(a => a !== 'read-only'); }
+function taskManifest(playbook, intent) {
+  const source = getPlaybook(playbook);
+  if (playbook !== 'opening-a-pr' || intent?.goal !== 'pr') return source;
+  return { ...source,
+    steps: source.steps.map(step => step.id === 'verify' ? { ...step,
+      instruction: `${step.instruction} For this PR-through-CI task, a CI repair retry authorizes the scoped code fix here: inspect failure, repair it, review the new diff, and rerun the original runtime repro and checks before recommitting/publishing.`,
+      evidence: [...step.evidence, 'diff-review', 'runtime-proof'],
+    } : step),
+    loops: [...(source.loops ?? []), { from: 'ci', to: 'verify', reason: 'CI failed: repair within the original scope, reverify, recommit, republish, and check the new head.' }],
+  };
+}
 function authorized(state, step) { return authorities(step).every(a => state.grants.includes(a)); }
 function receiptAllowed(state, step, receipt) {
   if (receipt.stepId !== step.id || !['passed', 'not-applicable'].includes(receipt.outcome)) return false;
+  const goal = state.taskIntent?.goal;
+  if (goal === 'pr' && state.playbook === 'opening-a-pr' && ['commit', 'publish', 'ci'].includes(step.id)) {
+    if (receipt.outcome !== 'passed') return false;
+    if (step.id === 'ci') {
+      try {
+        const proof = read(receipt.evidence.find(e => e.kind === 'ci-status').path);
+        if (proof.status !== 'passed' || !/^[a-f0-9]{40}$/.test(proof.headSha) || !/^https:\/\//.test(proof.prUrl)) return false;
+      } catch { return false; }
+    }
+  }
+  if (goal === 'pr' && receipt.outcome === 'not-applicable' && (step.invokes?.includes('opening-a-pr') || ['implementer', 'reviewer'].includes(step.role))) return false;
+  if (goal && goal !== 'pr' && goal !== 'playbook' && state.playbook === 'opening-a-pr' && ['commit', 'publish'].includes(step.id) && receipt.outcome === 'passed') return false;
   if (receipt.outcome === 'not-applicable') return Boolean(step.when) && Boolean(receipt.reason?.trim()) && receipt.evidence.some(e => e.kind === 'scope-exclusion');
   return authorized(state, step) && array(step.evidence).every(kind => receipt.evidence.some(e => e.kind === kind))
     && array(step.assertions).every(a => receipt.data?.[a.field] === a.equals);
@@ -93,8 +117,9 @@ function load(run, seen = new Set()) {
   if (state.run !== run) fail('run identity mismatch');
   for (const [file, digest] of Object.entries(state.sources)) if (hash(file) !== digest) fail(`source drift: ${file}`);
   if (hash(path.join(run, 'request.md')) !== state.requestHash) fail('request drift');
+  if (state.taskIntent) validateIntent(state.taskIntent, fs.readFileSync(path.join(run, 'request.md'), 'utf8'), state.parent ? state.taskIntent.playbook : state.playbook, state.grants);
   if (state.holdEvidence) validateEvidence(state, state.holdEvidence);
-  const manifest = getPlaybook(state.playbook);
+  const manifest = taskManifest(state.playbook, state.taskIntent);
   if (createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !== state.manifestHash) fail('manifest drift');
   let expected = manifest.steps[0].id;
   for (const receipt of state.receipts) {
@@ -119,17 +144,19 @@ function validateChild(state, stepId, child, seen = new Set(), requireComplete =
   if (requireComplete && other.status !== 'complete') fail(`required child incomplete: ${child.playbook}`);
   return { playbook: child.playbook, run: child.run, status: other.status };
 }
-function createRun({ workspace, playbook, requestFile, grants = ['read-only'], parent, depth = 0 }) {
+function createRun({ workspace, playbook, requestFile, grants = ['read-only'], taskIntent, parent, depth = 0 }) {
   workspace = fs.realpathSync(workspace);
   if (depth > 8) fail('child depth limit');
   if (!Array.isArray(grants) || grants.some(g => !knownGrants.includes(g))) fail(`grants must be one of: ${knownGrants.join(', ')}`);
-  const manifest = getPlaybook(playbook);
+  if (!taskIntent) fail('new root and child runs require a frozen task intent; legacy runs may only resume');
+  const manifest = taskManifest(playbook, taskIntent);
   const run = path.join(workspace, '.codex-delegate', 'playbooks', randomUUID());
   const request = fs.readFileSync(requestFile);
+  if (taskIntent) validateIntent(taskIntent, request.toString(), parent ? taskIntent.playbook : playbook, grants);
   const sources = sourceHashes();
   fs.mkdirSync(path.join(run, 'artifacts'), { recursive: true });
   fs.writeFileSync(path.join(run, 'request.md'), request, { mode: 0o444 });
-  const state = { version: 1, kind: 'playbook', run, workspace, playbook: manifest.id, grants, parent, depth, sources,
+  const state = { version: 1, kind: 'playbook', run, workspace, playbook: manifest.id, grants, taskIntent, parent, depth, sources,
     manifestHash: createHash('sha256').update(JSON.stringify(manifest)).digest('hex'),
     requestHash: hash(path.join(run, 'request.md')), stepId: manifest.steps[0].id,
     status: 'active', generation: 1, activatedAt: Date.now(), receipts: [], history: [], children: {} };
@@ -140,6 +167,7 @@ export function startPlaybook(options) { return createRun(options); }
 export function statusPlaybook(run) {
   const { state } = load(run);
   return { kind: 'playbook', run: state.run, playbook: state.playbook, stepId: state.stepId, generation: state.generation, status: state.status, phase: state.status === 'active' ? 'running' : state.status, completed: state.status === 'complete', grants: state.grants, reason: state.reason,
+    taskGoal: state.taskIntent?.goal, requiredDelivery: state.taskIntent?.requiredDelivery,
     completedSteps: state.receipts.filter(r => r.outcome === 'passed').map(r => r.stepId),
     skippedSteps: state.receipts.filter(r => r.outcome === 'not-applicable').map(({ stepId, reason, evidence }) => ({ stepId, reason, evidence })),
     ...(state.holdPending ? { holdRequired: { instruction: 'Immediately propagate zero-writes hold to every owner; record all owner acknowledgments before resuming.', evidence: ['hold-acknowledgments'] } } : {}) };
@@ -158,6 +186,8 @@ export function nextStep(run) {
     return { ...statusPlaybook(run), instruction: step.instruction, sourceSteps: step.sourceSteps,
       source: path.resolve(runtime, '..', manifest.source), sourceRoot: bundle, runtime, runtimeGuide: path.join(bundle, 'runtime.md'), executionPolicy: path.resolve(runtime, '../references/playbook-execution.md'), requestFile: path.join(run, 'request.md'),
       evidence: step.evidence, assertions: step.assertions, role: step.role, authority: step.authority, when: step.when,
+      retries: array(manifest.loops).filter(edge => edge.from === step.id),
+      taskRequirements: state.taskIntent?.goal === 'pr' ? 'Retain the task through implementation, verification, PR publication and passed CI. Do not skip required delivery. For opening-a-pr/ci supply ci-status JSON {status:"passed",headSha:<40-char SHA>,prUrl:<https URL>} from actual current-head checks. Pending or failed CI is unfinished; repair within scope and reverify before recording.' : undefined,
       modelPolicy: { planning: 'gpt-6-astra', implementation: 'gpt-5.6-terra', review: 'gpt-5.6-sol', reasoning: 'medium', reviewSession: 'fresh' },
       requiredChildren: invocations(step).map(playbook => {
         const child = array(state.children[step.id]).find(c => c.playbook === playbook);
@@ -242,7 +272,7 @@ export function startChild({ run, playbook }) {
     if (state.status !== 'active' || !step || !authorized(state, step) || !invocations(step).includes(playbook)) fail('child is not required by active authorized step');
     if (array(state.children[step.id]).some(c => c.playbook === playbook)) fail('child already linked; resume existing child');
     const token = randomUUID();
-    const child = createRun({ workspace: state.workspace, playbook, requestFile: path.join(run, 'request.md'), grants: state.grants, parent: { run, stepId: step.id, token }, depth: state.depth + 1 });
+    const child = createRun({ workspace: state.workspace, playbook, requestFile: path.join(run, 'request.md'), grants: state.grants, taskIntent: state.taskIntent, parent: { run, stepId: step.id, token }, depth: state.depth + 1 });
     (state.children[step.id] ??= []).push({ run: child.run, playbook, token });
     save(run, state, { type: 'child', stepId: step.id, child: child.run }); return child;
   });
@@ -253,7 +283,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const [command, ...args] = process.argv.slice(2); const options = {};
     for (let i = 0; i < args.length; i += 2) { if (!args[i].startsWith('--') || args[i + 1] == null) fail('expected --option value'); options[args[i].slice(2)] = args[i + 1]; }
     const commands = {
-      start: () => startPlaybook({ workspace: options.workspace, playbook: options.playbook, requestFile: options['request-file'], grants: options.grants?.split(',') }),
+      start: () => {
+        if (!options['intent-file']) fail('start requires --intent-file from intake');
+        const taskIntent = read(options['intent-file']);
+        return startPlaybook({ workspace: options.workspace, playbook: options.playbook ?? taskIntent.playbook, requestFile: options['request-file'], grants: options.grants?.split(',') ?? taskIntent.grants, taskIntent });
+      },
       next: () => nextStep(options.run), status: () => statusPlaybook(options.run), resume: () => resumePlaybook(options.run),
       record: () => recordStep({ ...read(options['receipt-file']), run: options.run }),
       child: () => startChild(options), retry: () => retryStep(options), pause: () => pausePlaybook({ ...options, ...(options['receipt-file'] ? read(options['receipt-file']) : {}), run: options.run }),

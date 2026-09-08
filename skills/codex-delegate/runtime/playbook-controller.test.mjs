@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PLAYBOOKS, getPlaybook } from './playbook-catalog.mjs';
+import { resolveIntent } from './task-intent.mjs';
 import { compilePlaybook, startPlaybook, nextStep, recordStep, retryStep, startChild, resumePlaybook, statusPlaybook, pausePlaybook } from './playbook-controller.mjs';
 
 const all = Object.keys(PLAYBOOKS).map(getPlaybook);
@@ -12,7 +13,8 @@ function fixture(t, playbook = all[0].id, allowed = grants) {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'playbook-test-'));
   t.after(() => fs.rmSync(workspace, { recursive: true, force: true }));
   const requestFile = path.join(workspace, 'input.md'); fs.writeFileSync(requestFile, 'Host task');
-  return startPlaybook({ workspace, playbook, requestFile, grants: allowed }).run;
+  const taskIntent = resolveIntent('Host task', { kind: 'other', restriction: 'none', requestedDelivery: 'unspecified', playbook, reason: 'Controller-only fixture for a specialized playbook' });
+  return startPlaybook({ workspace, playbook, requestFile, grants: allowed, taskIntent }).run;
 }
 function evidence(run, kinds) {
   return kinds.map(kind => {

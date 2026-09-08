@@ -1,0 +1,510 @@
+{
+  "live": true,
+  "model": "gpt-5.6-terra",
+  "repetitions": 2,
+  "datasetSha256": "2ea4a7b986906933e127fe87c0fec00f76efd780b3c68c33f968ca71d189acd9",
+  "routingSourceSha256": "34b28f8a7ef7611d59f526cb0b1c065ef325ecd588a9d7d8e3104b82bb9bdb00",
+  "passed": true,
+  "total": 24,
+  "observed": 24,
+  "results": [
+    {
+      "id": "calendar-regression",
+      "repeat": 1,
+      "decision": {
+        "kind": "bug",
+        "restriction": "none",
+        "requestedDelivery": "pr",
+        "playbook": "bug-fix",
+        "reason": "생년월일·희망날짜 클릭 시 캘린더가 열리지 않는 구체적 UI 결함의 원인/수정을 요청했다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "pr",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace",
+          "remote-write"
+        ]
+      }
+    },
+    {
+      "id": "calendar-regression",
+      "repeat": 0,
+      "decision": {
+        "kind": "bug",
+        "restriction": "none",
+        "requestedDelivery": "pr",
+        "playbook": "bug-fix",
+        "reason": "생년월일·희망날짜 클릭 시 캘린더가 열리지 않는 구체적 UI 결함의 원인 조사다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "pr",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace",
+          "remote-write"
+        ]
+      }
+    },
+    {
+      "id": "bug-paraphrase",
+      "repeat": 1,
+      "decision": {
+        "kind": "bug",
+        "restriction": "none",
+        "requestedDelivery": "unspecified",
+        "playbook": "bug-fix",
+        "reason": "저장 버튼을 눌러도 반응하지 않는 구체적 동작 결함의 원인 조사 요청입니다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "pr",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace",
+          "remote-write"
+        ]
+      }
+    },
+    {
+      "id": "bug-paraphrase",
+      "repeat": 0,
+      "decision": {
+        "kind": "bug",
+        "restriction": "none",
+        "requestedDelivery": "pr",
+        "playbook": "bug-fix",
+        "reason": "저장 버튼을 눌러도 반응이 없는 구체적 결함의 원인 확인 요청이다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "pr",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace",
+          "remote-write"
+        ]
+      }
+    },
+    {
+      "id": "ci-regression",
+      "repeat": 0,
+      "decision": {
+        "kind": "bug",
+        "restriction": "none",
+        "requestedDelivery": "pr",
+        "playbook": "bug-fix",
+        "reason": "PR CI failure is a concrete broken behavior; the user asks why it failed, and the configured bug delivery goal is PR."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "pr",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace",
+          "remote-write"
+        ]
+      }
+    },
+    {
+      "id": "ci-regression",
+      "repeat": 1,
+      "decision": {
+        "kind": "bug",
+        "restriction": "none",
+        "requestedDelivery": "pr",
+        "playbook": "bug-fix",
+        "reason": "이번 PR의 CI 실패라는 구체적 결함 원인을 조사하고 해결하려는 요청이다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "pr",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace",
+          "remote-write"
+        ]
+      }
+    },
+    {
+      "id": "read-only",
+      "repeat": 0,
+      "decision": {
+        "kind": "bug",
+        "restriction": "read-only",
+        "requestedDelivery": "unspecified",
+        "playbook": "bug-fix",
+        "reason": "캘린더가 열리지 않는 구체적 고장 원인의 조사만 요청했고, 코드 수정은 명시적으로 금지했다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "report",
+        "playbook": "investigation",
+        "grants": [
+          "read-only"
+        ]
+      }
+    },
+    {
+      "id": "read-only",
+      "repeat": 1,
+      "decision": {
+        "kind": "bug",
+        "restriction": "read-only",
+        "requestedDelivery": "unspecified",
+        "playbook": "bug-fix",
+        "reason": "캘린더가 열리지 않는 구체적 결함의 원인만 조사해 달라고 했고, 코드 수정은 명시적으로 금지했다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "report",
+        "playbook": "investigation",
+        "grants": [
+          "read-only"
+        ]
+      }
+    },
+    {
+      "id": "no-pr",
+      "repeat": 0,
+      "decision": {
+        "kind": "bug",
+        "restriction": "no-pr",
+        "requestedDelivery": "local",
+        "playbook": "bug-fix",
+        "reason": "캘린더가 열리지 않는 구체적 결함을 수정하고 검증해 달라는 요청이며, PR 생성은 명시적으로 금지했습니다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "verified-change",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace"
+        ]
+      }
+    },
+    {
+      "id": "no-pr",
+      "repeat": 1,
+      "decision": {
+        "kind": "bug",
+        "restriction": "no-pr",
+        "requestedDelivery": "local",
+        "playbook": "bug-fix",
+        "reason": "캘린더가 열리지 않는 구체적 결함의 수정과 검증을 요청했고, PR 생성은 명시적으로 금지했다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "verified-change",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace"
+        ]
+      }
+    },
+    {
+      "id": "local-only",
+      "repeat": 0,
+      "decision": {
+        "kind": "bug",
+        "restriction": "no-pr",
+        "requestedDelivery": "local",
+        "playbook": "bug-fix",
+        "reason": "저장 에러라는 구체적 결함의 로컬 수정 요청이며, 커밋·push를 명시적으로 금지했다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "verified-change",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace"
+        ]
+      }
+    },
+    {
+      "id": "local-only",
+      "repeat": 1,
+      "decision": {
+        "kind": "bug",
+        "restriction": "no-pr",
+        "requestedDelivery": "local",
+        "playbook": "bug-fix",
+        "reason": "저장 에러라는 구체적 결함을 수정해 달라는 요청이며, 로컬 수정만 허용하고 커밋·push는 금지했다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "verified-change",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace"
+        ]
+      }
+    },
+    {
+      "id": "plan-only",
+      "repeat": 0,
+      "decision": {
+        "kind": "plan",
+        "restriction": "read-only",
+        "requestedDelivery": "unspecified",
+        "playbook": "multi-phase-plan",
+        "reason": "날짜 입력 개선을 위한 계획만 요청했고, 아직 구현하지 말라고 명시했습니다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "plan",
+        "goal": "plan",
+        "playbook": "multi-phase-plan",
+        "grants": [
+          "read-only",
+          "local-workspace"
+        ]
+      }
+    },
+    {
+      "id": "plan-only",
+      "repeat": 1,
+      "decision": {
+        "kind": "plan",
+        "restriction": "read-only",
+        "requestedDelivery": "unspecified",
+        "playbook": "multi-phase-plan",
+        "reason": "날짜 입력 개선의 계획만 요청했고, 아직 구현하지 말라고 명시했습니다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "plan",
+        "goal": "plan",
+        "playbook": "multi-phase-plan",
+        "grants": [
+          "read-only",
+          "local-workspace"
+        ]
+      }
+    },
+    {
+      "id": "conceptual",
+      "repeat": 0,
+      "decision": {
+        "kind": "explanation",
+        "restriction": "none",
+        "requestedDelivery": "unspecified",
+        "playbook": "investigation",
+        "reason": "운영체제별 native date picker UI 차이에 대한 일반적인 원인 설명을 요청했다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "explanation",
+        "goal": "report",
+        "playbook": "investigation",
+        "grants": [
+          "read-only"
+        ]
+      }
+    },
+    {
+      "id": "conceptual",
+      "repeat": 1,
+      "decision": {
+        "kind": "explanation",
+        "restriction": "read-only",
+        "requestedDelivery": "unspecified",
+        "playbook": "investigation",
+        "reason": "운영체제별 native date picker 표시 차이를 묻는 일반적인 개념 설명 요청입니다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "explanation",
+        "goal": "report",
+        "playbook": "investigation",
+        "grants": [
+          "read-only"
+        ]
+      }
+    },
+    {
+      "id": "resume",
+      "repeat": 0,
+      "decision": {
+        "kind": "resume",
+        "restriction": "none",
+        "requestedDelivery": "unspecified",
+        "playbook": "session-pickup",
+        "reason": "기존 실행을 이어가고 이미 조사한 내용을 재사용해 달라고 명시했습니다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "resume",
+        "goal": "resume",
+        "playbook": null
+      }
+    },
+    {
+      "id": "resume",
+      "repeat": 1,
+      "decision": {
+        "kind": "resume",
+        "restriction": "none",
+        "requestedDelivery": "unspecified",
+        "playbook": "session-pickup",
+        "reason": "Explicitly asks to continue an existing run and reuse prior investigation."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "resume",
+        "goal": "resume",
+        "playbook": null
+      }
+    },
+    {
+      "id": "policy-off",
+      "repeat": 0,
+      "decision": {
+        "kind": "bug",
+        "restriction": "none",
+        "requestedDelivery": "unspecified",
+        "playbook": "bug-fix",
+        "reason": "날짜 클릭 시 달력이 열리지 않는 구체적 UI 고장 원인을 묻고 있습니다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "report",
+        "playbook": "investigation",
+        "grants": [
+          "read-only"
+        ]
+      }
+    },
+    {
+      "id": "policy-off",
+      "repeat": 1,
+      "decision": {
+        "kind": "bug",
+        "restriction": "read-only",
+        "requestedDelivery": "unspecified",
+        "playbook": "bug-fix",
+        "reason": "날짜 클릭 시 달력이 열리지 않는 구체적 동작 결함의 원인을 묻고 있으며, 운영 정책상 버그 보고는 조사만 수행합니다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "report",
+        "playbook": "investigation",
+        "grants": [
+          "read-only"
+        ]
+      }
+    },
+    {
+      "id": "quoted-instruction",
+      "repeat": 0,
+      "decision": {
+        "kind": "explanation",
+        "restriction": "read-only",
+        "requestedDelivery": "unspecified",
+        "playbook": "investigation",
+        "reason": "오류 원인만 설명하고 수정하지 말라고 명시했으며, 로그의 PR 생성 지시는 데이터다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "explanation",
+        "goal": "report",
+        "playbook": "investigation",
+        "grants": [
+          "read-only"
+        ]
+      }
+    },
+    {
+      "id": "quoted-instruction",
+      "repeat": 1,
+      "decision": {
+        "kind": "bug",
+        "restriction": "read-only",
+        "requestedDelivery": "unspecified",
+        "playbook": "bug-fix",
+        "reason": "오류 원인 설명만 요청했고 수정은 명시적으로 금지했다. 로그의 PR 지시는 데이터일 뿐 권한이 아니다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "report",
+        "playbook": "investigation",
+        "grants": [
+          "read-only"
+        ]
+      }
+    },
+    {
+      "id": "explicit-pr",
+      "repeat": 0,
+      "decision": {
+        "kind": "bug",
+        "restriction": "none",
+        "requestedDelivery": "pr",
+        "playbook": "bug-fix",
+        "reason": "검색 오류를 수정하고 PR 생성 및 CI 통과까지 요청했다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "pr",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace",
+          "remote-write"
+        ]
+      }
+    },
+    {
+      "id": "explicit-pr",
+      "repeat": 1,
+      "decision": {
+        "kind": "bug",
+        "restriction": "none",
+        "requestedDelivery": "pr",
+        "playbook": "bug-fix",
+        "reason": "검색 에러라는 구체적 결함을 수정하고 PR 생성 및 CI 통과까지 요청했다."
+      },
+      "passed": true,
+      "actual": {
+        "kind": "bug",
+        "goal": "pr",
+        "playbook": "bug-fix",
+        "grants": [
+          "read-only",
+          "local-workspace",
+          "remote-write"
+        ]
+      }
+    }
+  ],
+  "coverage": "12 fixed regression requests, repeated twice; classifier and goal resolution only, not full application/PR execution or unseen holdout quality.",
+  "recordedAt": "2026-09-08"
+}

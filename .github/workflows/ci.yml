@@ -25,3 +25,6 @@ jobs:
       - name: Test Codex Delegate runtime
         working-directory: skills/codex-delegate/runtime
         run: npm test
+      - name: Validate intent evaluation dataset (no AI calls)
+        working-directory: skills/codex-delegate/runtime
+        run: node intent-eval.mjs

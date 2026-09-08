@@ -208,10 +208,10 @@ async function drive(state, options) {
   return state;
 }
 function load(run) { const state = readJson(path.join(path.resolve(run), "state.json")); ensure(state.version === VERSION && state.run === path.resolve(run), "run identity/version mismatch"); ensure(hash(fs.readFileSync(path.join(state.run, "request.txt"))) === state.requestHash, "request changed"); ensure(hash(fs.readFileSync(path.join(state.run, "config.json"))) === state.configHash, "run config changed"); if (state.scopeHash) ensure(hash(fs.readFileSync(state.scopeFile)) === state.scopeHash, 'scope changed'); return state; }
-export async function start({ workspace, requestFile, scopeFile, planFile, playbook, grants, authority = 'read-only', runtimeVisualEvidenceFile, runtimeVisualRoute, policy, ...options }) {
+export async function start({ workspace, requestFile, scopeFile, planFile, playbook, grants, taskIntent, authority = 'read-only', runtimeVisualEvidenceFile, runtimeVisualRoute, policy, ...options }) {
   if (playbook) {
     const { startPlaybook } = await import('./playbook-controller.mjs');
-    return startPlaybook({ workspace, playbook, requestFile, grants: grants ?? [authority] });
+    return startPlaybook({ workspace, playbook, requestFile, taskIntent, grants: grants ?? taskIntent?.grants ?? [authority] });
   }
   ensure(['read-only', 'local-workspace'].includes(authority), 'authority must be read-only or local-workspace');
   workspace = fs.realpathSync(workspace);
@@ -272,12 +272,18 @@ export async function resume({ run, retry = false, ...options }) {
 }
 async function main() {
   try { const [command, ...args] = process.argv.slice(2); const value = (key) => cliValue(args, key); let state;
+    if (command === 'intake') {
+      const { intake } = await import('./task-intent.mjs');
+      console.log(JSON.stringify(await intake({ requestFile: value('--request-file'), outDir: value('--out'), policyFile: value('--policy-file'), model: value('--model'), codexBin: value('--codex-bin') }), null, 2)); return;
+    }
     if (command === 'playbooks') { const { PLAYBOOKS } = await import('./playbook-catalog.mjs'); console.log(JSON.stringify(Object.entries(PLAYBOOKS).map(([id,p]) => ({id,title:p.title,entry:p.entry})),null,2)); return; }
-    if (command === 'start' && value('--playbook')) {
+    if (command === 'start' && (value('--playbook') || value('--intent-file'))) {
       ensure(value('--workspace') && value('--request-file'), 'start needs --workspace and --request-file');
-      ensure(!args.includes('--code-phase') && !['--scope-file','--plan-file','--codex-bin','--execution-mode','--runtime-visual-evidence','--runtime-visual-route'].some(key => args.includes(key)), 'playbook controller cannot accept code-executor options; include task scope in the request and pass executor options only to its code substep');
+      ensure(!args.includes('--code-phase') && !['--authority','--scope-file','--plan-file','--codex-bin','--execution-mode','--runtime-visual-evidence','--runtime-visual-route'].some(key => args.includes(key)), 'playbook controller cannot accept code-executor options; include task scope in the request and pass executor options only to its code substep');
       const { nextStep } = await import('./playbook-controller.mjs');
-      const created = await start({ workspace: value('--workspace'), requestFile: value('--request-file'), playbook: value('--playbook'), grants: value('--grants')?.split(','), authority: value('--authority') });
+      ensure(value('--intent-file'), 'new playbook tasks require intake --request-file ORIGINAL --out ABS, then start --intent-file ABS');
+      const taskIntent = readJson(value('--intent-file'));
+      const created = await start({ workspace: value('--workspace'), requestFile: value('--request-file'), taskIntent, playbook: value('--playbook') ?? taskIntent.playbook, grants: value('--grants')?.split(','), authority: value('--authority') });
       const current = nextStep(created.run); console.log(JSON.stringify(current,null,2)); if (current.phase === 'blocked') process.exitCode = 1; return;
     }
     if (['next','record','child','retry','pause'].includes(command)) {
