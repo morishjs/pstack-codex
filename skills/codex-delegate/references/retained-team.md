@@ -10,10 +10,11 @@ Keep every selected Poteto phase and evidence gate. Phase boundaries do not crea
 
 ```json
 {"type":"assign","role":"worker","agentId":"actual-main-thread-id"}
-{"type":"acceptance","actorId":"actual-main-thread-id","requirements":[{"id":"tenant-send","text":"Use the current hospital's values when sending"}]}
+{"type":"assess-design","actorId":"actual-main-thread-id","clear":true,"reason":"Existing implementation path and behavior are explicit","questions":[]}
+{"type":"acceptance","actorId":"actual-main-thread-id","requirements":[{"id":"tenant-send","text":"Use the current hospital's values when sending","implementationFiles":["src/sender.ts"],"verification":"Check tenant replacement in the actual sending path","decisionIds":[]}]}
 {"type":"assign","role":"reviewer","agentId":"actual-independent-reviewer-id"}
 {"type":"verify","actorId":"actual-main-thread-id","id":"sender-runtime","requirementIds":["tenant-send"],"inputFiles":["src/sender.ts","src/profile.ts","package.json","pnpm-lock.yaml"]}
-{"type":"finding","actorId":"actual-independent-reviewer-id","id":"F1","kind":"implementation","required":true,"requirementId":"tenant-send","summary":"Sending can precede organization loading","affectedFiles":["src/sender.ts"]}
+{"type":"finding","actorId":"actual-independent-reviewer-id","id":"F1","kind":"implementation","basis":"change-regression","required":true,"requirementId":"tenant-send","summary":"Sending can precede organization loading","affectedFiles":["src/sender.ts"]}
 {"type":"fixed","actorId":"actual-main-thread-id","id":"F1","summary":"Block send until required tokens resolve"}
 {"type":"resolve","actorId":"actual-independent-reviewer-id","id":"F1"}
 {"type":"approve","actorId":"actual-independent-reviewer-id","inputFiles":["src/sender.ts","src/profile.ts","package.json","pnpm-lock.yaml"]}

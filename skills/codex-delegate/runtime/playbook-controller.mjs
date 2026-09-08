@@ -24,7 +24,7 @@ function sourceHashes() {
     if (!inside(bundle, file) || hash(file) !== entry.sha256) fail(`bundled source drift: ${entry.target}`);
     sources[file] = entry.sha256;
   }
-  for (const file of [manifestFile, fileURLToPath(import.meta.url), path.join(runtime, 'playbook-catalog.mjs'), path.join(runtime, 'task-intent.mjs'), path.join(runtime, 'recovery-action.mjs'), path.join(runtime, 'review-cycle.mjs'), path.resolve(runtime, '../references/playbook-execution.md')]) sources[file] = hash(file);
+  for (const file of [manifestFile, fileURLToPath(import.meta.url), path.join(runtime, 'playbook-catalog.mjs'), path.join(runtime, 'task-intent.mjs'), path.join(runtime, 'recovery-action.mjs'), path.join(runtime, 'review-cycle.mjs'), path.join(runtime, 'design-gate.mjs'), path.resolve(runtime, '../references/playbook-execution.md')]) sources[file] = hash(file);
   return sources;
 }
 function authorities(step) { return array(step.authority).filter(a => a !== 'read-only'); }

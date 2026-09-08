@@ -8,6 +8,8 @@ Prefer Terra medium when creating the main task and the caller can select its mo
 
 The default team is one retained worker and one independent reviewer, not one new agent per phase. All 23 playbook step graphs remain. The shared [review ledger](skills/codex-delegate/references/retained-team.md) links findings to frozen requirements, records fixes, reuses checks whose declared inputs remain unchanged, and gates completion on independent approval. Additional source-required panels/lanes need explicit reasons. Existing separate-author executor runs remain supported as opt-in legacy execution.
 
+[Design grilling](skills/codex-delegate/references/design-grilling.md) is conditional on unresolved decisions. Clear work proceeds directly; technical questions are resolved by the retained pair in dependency order, and product-policy/authority/irreversible choices use actual user decisions. Accepted decisions map to implementation locations and verification. Re-review fixes agreed omissions and change regressions, while unrelated issues stay in followups; a newly discovered blocking dependency requires a scope disposition and mapped verification.
+
 Install it:
 
 ```sh

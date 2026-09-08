@@ -16,6 +16,7 @@ function fixture(t) {
   const evidence = [{ kind: 'review', path: path.join(workspace, 'proof.txt'), sha256: createHash('sha256').update('proof.txt').digest('hex') }];
   const cycle = newReviewCycle('worker');
   const op = operation => {
+    if (operation.type === 'finding') operation = { basis: 'design-omission', ...operation };
     let proof = evidence;
     if (operation.type === 'assign' && operation.role !== 'worker') {
       const file = path.join(workspace, operation.agentId + '-host.json');
@@ -25,7 +26,8 @@ function fixture(t) {
     return updateReviewCycle(cycle, workspace, operation, proof);
   };
   op({ type: 'assign', role: 'reviewer', agentId: 'reviewer' });
-  op({ type: 'acceptance', actorId: 'worker', requirements: [{ id: 'send', text: 'Send with the correct tenant fields' }] });
+  op({ type: 'assess-design', actorId: 'worker', clear: true, reason: 'Existing sending path and requested outcome are clear', questions: [] });
+  op({ type: 'acceptance', actorId: 'worker', requirements: [{ id: 'send', text: 'Send with the correct tenant fields', implementationFiles: ['send.mjs'], verification: 'Sender behavior checks', decisionIds: [] }] });
   return { workspace, evidence, assignmentEvidence: cycle.reviewerEvidence, cycle, op };
 }
 test('two retained roles survive repeated findings and independent review resolves each fix', t => {
@@ -74,9 +76,10 @@ test('XState repair preserves roles and history and format repair stays at verif
   const request = 'Implement tenant-safe sending'; fs.writeFileSync(path.join(workspace, 'request.md'), request);
   const taskIntent = resolveIntent(request, { kind: 'implementation', restriction: 'none', requestedDelivery: 'local', playbook: 'feature', reason: 'New local behavior' });
   const run = startPlaybook({ workspace, requestFile: path.join(workspace, 'request.md'), playbook: 'feature', grants: taskIntent.grants, taskIntent, workerId: 'worker' }).run;
-  const team = operation => updateTeam({ run, operation, evidence: operation.type === 'assign' ? assignmentEvidence : evidence });
+  const team = operation => updateTeam({ run, operation: operation.type === 'finding' ? { basis: 'design-omission', ...operation } : operation, evidence: operation.type === 'assign' ? assignmentEvidence : evidence });
   team({ type: 'assign', role: 'reviewer', agentId: 'reviewer' });
-  team({ type: 'acceptance', actorId: 'worker', requirements: [{ id: 'send', text: 'Correct sending' }] });
+  team({ type: 'assess-design', actorId: 'worker', clear: true, reason: 'Clear existing behavior change', questions: [] });
+  team({ type: 'acceptance', actorId: 'worker', requirements: [{ id: 'send', text: 'Correct sending', implementationFiles: ['send.mjs'], verification: 'Sender behavior', decisionIds: [] }] });
   while (nextStep(run).stepId !== 'verify') {
     const current = nextStep(run);
     recordStep({ run, stepId: current.stepId, generation: current.generation, outcome: 'passed',
@@ -117,7 +120,8 @@ test('Git changes since start must be in approval and new changes invalidate it'
   const cycle = newReviewCycle('worker', workspace);
   const op = operation => updateReviewCycle(cycle, workspace, operation, [...evidence, { kind: 'host-assignment', path: path.join(workspace, 'reviewer-host.json'), sha256: createHash('sha256').update(fs.readFileSync(path.join(workspace, 'reviewer-host.json'))).digest('hex') }]);
   op({ type: 'assign', role: 'reviewer', agentId: 'reviewer' });
-  op({ type: 'acceptance', actorId: 'worker', requirements: [{ id: 'send', text: 'Correct sender' }] });
+  op({ type: 'assess-design', actorId: 'worker', clear: true, reason: 'Clear sender requirement', questions: [] });
+  op({ type: 'acceptance', actorId: 'worker', requirements: [{ id: 'send', text: 'Correct sender', implementationFiles: ['migration.mjs'], verification: 'Existing check', decisionIds: [] }] });
   fs.writeFileSync(path.join(workspace, 'send.mjs'), 'changed sender');
   op({ type: 'verify', actorId: 'worker', id: 'check', requirementIds: ['send'], inputFiles: ['migration.mjs'] });
   assert.throws(() => op({ type: 'approve', actorId: 'reviewer', inputFiles: ['migration.mjs'] }), /actual changed files/);
@@ -125,4 +129,28 @@ test('Git changes since start must be in approval and new changes invalidate it'
   assert.equal(reviewContext(cycle, workspace).approved, true);
   fs.writeFileSync(path.join(workspace, 'new.mjs'), 'new code');
   assert.equal(reviewContext(cycle, workspace).approved, false);
+});
+
+test('out-of-scope findings are deferred without revoking approval; blocking dependencies need scope disposition', t => {
+  const { workspace, cycle, evidence, op } = fixture(t);
+  op({ type: 'verify', actorId: 'worker', id: 'send', requirementIds: ['send'], inputFiles: ['send.mjs'] });
+  op({ type: 'approve', actorId: 'reviewer', inputFiles: ['send.mjs'] });
+  op({ type: 'finding', actorId: 'reviewer', id: 'old-ui', kind: 'improvement', basis: 'preexisting', required: false, summary: 'Unrelated existing UI issue', affectedFiles: ['migration.mjs'] });
+  assert.equal(reviewContext(cycle, workspace).approved, true);
+  assert.equal(reviewContext(cycle, workspace).followups.length, 1);
+  assert.equal(repairDestination(cycle, 'old-ui'), 'defer');
+  assert.throws(() => op({ type: 'fixed', actorId: 'worker', id: 'old-ui' }), /not current implementation scope/);
+  assert.throws(() => op({ type: 'finding', actorId: 'reviewer', id: 'hidden', kind: 'implementation', basis: 'change-regression', required: false, summary: 'Actual regression', affectedFiles: ['send.mjs'] }), /cannot be downgraded/);
+  op({ type: 'finding', actorId: 'reviewer', id: 'dependency', kind: 'implementation', basis: 'blocking-dependency', required: true, requirementId: 'send', summary: 'New dependency prevents safe sending', affectedFiles: ['send.mjs'] });
+  assert.throws(() => repairDestination(cycle, 'dependency'), /scope decision/);
+  assert.throws(() => op({ type: 'scope-decision', actorId: 'reviewer', id: 'dependency', choice: 'include', reason: 'Expand scope' }), /actual user input/);
+  op({ type: 'scope-decision', actorId: 'reviewer', id: 'dependency', choice: 'within-scope', checkIds: ['dependency-check'], reason: 'Existing boundary can safely handle the case without a policy change' });
+  assert.equal(repairDestination(cycle, 'dependency'), 'implement');
+  op({ type: 'fixed', actorId: 'worker', id: 'dependency' }); op({ type: 'resolve', actorId: 'reviewer', id: 'dependency' });
+  assert.throws(() => op({ type: 'approve', actorId: 'reviewer', inputFiles: ['send.mjs'] }), /dependency verification/);
+  op({ type: 'verify', actorId: 'worker', id: 'dependency-check', requirementIds: ['send'], inputFiles: ['migration.mjs'] });
+  assert.throws(() => op({ type: 'approve', actorId: 'reviewer', inputFiles: ['send.mjs', 'migration.mjs'] }), /dependency verification/);
+  op({ type: 'verify', actorId: 'worker', id: 'dependency-check', requirementIds: ['send'], inputFiles: ['send.mjs'] });
+  op({ type: 'approve', actorId: 'reviewer', inputFiles: ['send.mjs'] });
+  assert.equal(reviewContext(cycle, workspace).approved, true);
 });

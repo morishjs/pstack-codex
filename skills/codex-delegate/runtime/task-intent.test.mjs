@@ -69,7 +69,8 @@ function setup(t, restriction = 'none') {
   assert.throws(() => startPlaybook({ workspace, requestFile, playbook: 'investigation' }), /frozen task intent/);
   const taskIntent = resolveIntent(request, decision({ restriction }), policy);
   const run = startPlaybook({ workspace, requestFile, playbook: taskIntent.playbook, grants: taskIntent.grants, taskIntent, workerId: 'fixture-worker' }).run;
-  updateTeam({ run, operation: { type: 'acceptance', actorId: 'fixture-worker', requirements: [{ id: 'calendar', text: 'Preserve requested calendar behavior' }] }, evidence: [{ kind: 'request', path: requestFile }] });
+  updateTeam({ run, operation: { type: 'assess-design', actorId: 'fixture-worker', clear: true, reason: 'Known calendar defect and desired behavior', questions: [] }, evidence: [{ kind: 'request', path: requestFile }] });
+  updateTeam({ run, operation: { type: 'acceptance', actorId: 'fixture-worker', requirements: [{ id: 'calendar', text: 'Preserve requested calendar behavior', implementationFiles: ['request.md'], verification: 'Calendar interaction', decisionIds: [] }] }, evidence: [{ kind: 'request', path: requestFile }] });
   return run;
 }
 function receipt(run, outcome = 'passed', override = {}) {
