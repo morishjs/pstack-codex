@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { startQueue, resumeQueue } from './queue-session.mjs';
+import { startQueue, resumeQueue, queueStatus } from './queue-session.mjs';
+import { assessRecovery } from './recovery-action.mjs';
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 function fixture(t, dependencies = true) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'queue-session-')); t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -30,6 +31,8 @@ test('transitive dependency patches include added tests; integration and source 
     implement(task, workspace); return success(`run-${task.id}`);
   } });
   assert.equal(result.phase, 'complete'); assert.equal(integration, 1);
+  const snapshot = await queueStatus(result.session, { verifyIntegration: async () => true });
+  assert.equal(assessRecovery(snapshot, { kind: 'install-browser', inScope: true, environment: 'local' }).decision, 'continue');
   assert.equal(fs.existsSync(path.join(f.source, 'a.txt')), false);
   assert.match(fs.readFileSync(result.queue.a.result.patch, 'utf8'), /a.test.mjs/);
   assert.equal(git(f.source, 'log', '--oneline').split('\n').length, 1);

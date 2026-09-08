@@ -129,4 +129,10 @@ test('recoverable login obstacle cannot be recorded as an approval blocker', t =
   assert.equal(statusPlaybook(run).status, 'active');
   recordStep(receipt(run));
   assert.equal(statusPlaybook(run).taskGoal, 'pr');
+  const next = nextStep(run);
+  const protectedAction = { kind: 'account-change', inScope: true, environment: 'local' };
+  recordStep({ run, stepId: next.stepId, generation: next.generation, outcome: 'blocked', reason: 'Exact account change authorization missing', recoveryAction: protectedAction });
+  const saved = JSON.parse(fs.readFileSync(path.join(run, 'state.json'), 'utf8')).receipts.at(-1);
+  assert.deepEqual(saved.recoveryAction, protectedAction);
+  assert.equal(saved.recoveryAssessment.decision, 'needs-user');
 });

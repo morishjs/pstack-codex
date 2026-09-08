@@ -12,7 +12,7 @@ export function assessRecovery(state, action) {
     if (action.existingTestAccount !== true || !['local', 'dev', 'test'].includes(action.environment)) return needs('No confirmed existing test-account login scope.');
     return { decision: 'continue', reason: 'Use the existing approved test login and continue verification; do not create, reset, or change the account.' };
   }
-  if (!state.grants?.includes('local-workspace')) return needs('Local modification is not included in the current task grant.');
+  if (!state.grants?.includes('local-workspace') && state.authority !== 'local-workspace') return needs('Local modification is not included in the current task grant.');
   if (action.environment !== 'local') return needs('This recovery action is not confined to the local environment.');
   return { decision: 'continue', reason: 'Perform the scoped reversible local recovery and rerun verification without asking again.' };
 }

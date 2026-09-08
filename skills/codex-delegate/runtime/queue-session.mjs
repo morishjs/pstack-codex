@@ -246,7 +246,9 @@ async function validateComplete(state, verifyIntegration) {
   return state;
 }
 export async function queueStatus(session, { verifyIntegration = verifyIntegrationDefault } = {}) {
-  const state = load(session); return state.phase === 'complete' ? validateComplete(state, verifyIntegration) : state;
+  const state = load(session);
+  // Queue creation requires local-workspace authorization, including persisted legacy queues.
+  return { ...(state.phase === 'complete' ? await validateComplete(state, verifyIntegration) : state), authority: 'local-workspace' };
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {

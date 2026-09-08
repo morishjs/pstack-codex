@@ -206,8 +206,9 @@ export function recordStep({ run, stepId, generation, outcome, reason, evidence 
     if (!['passed', 'not-applicable', 'blocked'].includes(outcome)) fail('invalid outcome');
     if (state.status === 'blocked' && !(outcome === 'not-applicable' && step.when && !authorized(state, step))) fail('resume blocked step before recording');
     if (outcome === 'blocked' && !reason?.trim()) fail('blocked outcome needs reason');
-    if (outcome === 'blocked' && recoveryAction && assessRecovery(state, recoveryAction).decision === 'continue') fail('recoverable local action: execute recovery and verification instead of requesting approval or recording a blocker');
-    const receipt = { stepId, generation, outcome, reason, data, activatedAt: state.activatedAt, evidence: validateEvidence(state, evidence), at: Date.now() };
+    const recoveryAssessment = recoveryAction ? assessRecovery(state, recoveryAction) : undefined;
+    if (outcome === 'blocked' && recoveryAssessment?.decision === 'continue') fail('recoverable local action: execute recovery and verification instead of requesting approval or recording a blocker');
+    const receipt = { stepId, generation, outcome, reason, data, recoveryAction, recoveryAssessment, activatedAt: state.activatedAt, evidence: validateEvidence(state, evidence), at: Date.now() };
     if (outcome !== 'blocked') {
       if (!receiptAllowed(state, step, receipt)) fail('receipt lacks required evidence, authority, or conditional scope');
       receipt.children = outcome === 'passed' ? invocations(step).map(playbook => {

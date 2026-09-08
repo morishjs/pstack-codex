@@ -10,6 +10,7 @@ test('scoped verification recovery continues without another approval', () => {
   }
   assert.equal(assessRecovery(state, { kind: 'test-login', inScope: true, environment: 'local', existingTestAccount: true }).decision, 'continue');
   assert.match(recoveryInstructions, /Execute them/);
+  assert.equal(assessRecovery({ authority: 'local-workspace' }, { kind: 'install-browser', inScope: true, environment: 'local' }).decision, 'continue');
 });
 test('localhost and a PR grant do not authorize credential changes, remote writes or deletion', () => {
   for (const kind of ['account-change', 'remote-data-write', 'delete-data', 'unknown']) {
