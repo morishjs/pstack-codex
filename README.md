@@ -4,6 +4,8 @@ The primary skill is `codex-delegate`. All 23 Poteto playbooks have separate XSt
 
 ## Codex Delegate
 
+Prefer Sol medium when creating the main task and the caller can select its model before the first turn. A loaded skill cannot silently replace the current turn's model, so Codex Delegate starts work immediately and never inserts a same-thread model-handoff pause. Role-specific model selection still applies to delegated planning, implementation, and review.
+
 Install it:
 
 ```sh

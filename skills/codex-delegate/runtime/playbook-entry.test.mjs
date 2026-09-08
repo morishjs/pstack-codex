@@ -15,6 +15,12 @@ const json = (...args) => {
   return JSON.parse(result.stdout);
 };
 
+test('skill starts in the current turn without a same-thread model handoff', () => {
+  const skill = fs.readFileSync(new URL('../SKILL.md', import.meta.url), 'utf8');
+  assert.match(skill, /Start work in the current turn/);
+  assert.doesNotMatch(skill, /send_message_to_thread|sol-main-handoff|after the tool accepts the continuation, yield/);
+});
+
 test('public CLI selects a playbook, preserves pause, rejects stale receipts and completes read-only investigation', () => {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'delegate-entry-'));
   try {

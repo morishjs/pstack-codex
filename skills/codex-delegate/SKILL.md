@@ -5,6 +5,10 @@ description: Execute the complete Poteto playbook library through per-playbook X
 
 # Codex Delegate
 
+## Main coordinator
+
+Start work in the current turn. Never end the turn merely to request a model change, and never emit a model-handoff status message instead of acting on the task. A skill is loaded after the host has selected the current turn's model, so it cannot silently replace that model. If the caller creates a new task and can select its model up front, prefer **gpt-5.6-sol / medium** for the main coordinator. Otherwise retain the current main model and apply the role-specific model policy below through explicit delegated roles. Do not create a new thread, send a message back to the same thread, or restart intake only to change the main model.
+
 Freeze the user's intended outcome before selecting a playbook. All 23 bundled Poteto playbooks have their own guarded XState step graph. Read [execution policy](references/playbook-execution.md) and the selected original playbook under [the source guide](poteto/GUIDE.md). Do not replace the selected playbook with the generic code executor. The complete source and supporting tools are bundled; `poteto-manifest.json` pins their original bytes.
 
 ## Select and start
