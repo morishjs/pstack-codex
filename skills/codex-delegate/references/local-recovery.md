@@ -18,6 +18,8 @@ When a blocker receipt is based on this check, include the checked object as `re
 
 ## Actual runtime verification
 
+For browser scenarios, use the [Cursor ACP handoff](cursor-browser-verification.md) by default. The command below remains an available scenario-specific tool; running it is not mandatory for unrelated UI work. Cursor execution must meet the same real-login and interaction evidence requirements.
+
 Keep the small deterministic policy tests in `npm test`: existing authority, protected effects, explicit pause, and false blocker rejection. The simulated recovery-tool grader and its four-case AI harness were removed. They did not prove real login or application recovery.
 
 The opt-in Mevops integration command uses the project's Playwright package and installed Chrome. It has no route mocks, auth bypass, synthetic event log, or fixture data creation:
