@@ -272,6 +272,10 @@ export async function resume({ run, retry = false, ...options }) {
 }
 async function main() {
   try { const [command, ...args] = process.argv.slice(2); const value = (key) => cliValue(args, key); let state;
+    if (command === 'recovery') {
+      const { assessRecovery } = await import('./recovery-action.mjs');
+      console.log(JSON.stringify(assessRecovery(await status(value('--run')), readJson(value('--action-file'))), null, 2)); return;
+    }
     if (command === 'intake') {
       const { intake } = await import('./task-intent.mjs');
       console.log(JSON.stringify(await intake({ requestFile: value('--request-file'), outDir: value('--out'), policyFile: value('--policy-file'), model: value('--model'), codexBin: value('--codex-bin') }), null, 2)); return;

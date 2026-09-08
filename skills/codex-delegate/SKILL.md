@@ -34,6 +34,8 @@ Intake derives grants for report, plan, verified-change, and PR goals. Other spe
 
 Starting a run is not completion. Retain the frozen task goal through child playbooks and repairs. PR tasks cannot skip publication or accept pending/failed CI as complete; follow the current-head evidence format returned by `next`. Repair authorized failures and reverify before accepting completion. Keep ownership through terminal evidence. Answer status questions in commentary and continue. Use `pause` and `resume` to retain progress. Never promise a future wake without a real scheduler receipt.
 
+Do not ask again to perform scoped reversible local recovery: install the project's browser runtime, start the current worktree server, repair a local API startup error, or rerun tests. Use the approved existing test account to log in and finish the requested UI verification. Normal login is not account creation or password mutation. For a verification obstacle, use `recovery --run ABS --action-file ABS` with `{kind, inScope, environment}` (and `existingTestAccount` for `test-login`). Follow `next`'s recovery instructions, execute the actual action, and retain proof. If recording a blocker from this decision, include the same `recoveryAction` in its receipt; an allowed recovery cannot be recorded as an approval blocker. Explicit user pauses remain valid. Localhost does not authorize remote DB writes, credential changes, deletion, or unrelated fixes; check the underlying effect and existing exact authorization.
+
 The controller checks order, authority, child completion, hashes, and declared assertions. The host must inspect semantic correctness and actual tool results. A fabricated file or a successful unit test does not establish browser, model, forge, or production execution.
 
 ## Reuse the code executor
@@ -45,3 +47,5 @@ Scope paths are literal relative files/directories; `/**` is rejected before mod
 Existing code runs remain resumable with their saved status/wait/resume commands. New session-pickup work resumes existing progress rather than rebuilding it.
 
 See [intent evaluation](references/intent-evaluation.md) for deterministic completion tests and the separate live model regression suite.
+
+See [local recovery](references/local-recovery.md) for action inputs, authorization boundaries, and executable continuation scenarios.

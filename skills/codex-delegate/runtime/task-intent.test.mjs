@@ -120,3 +120,13 @@ test('no-PR goal cannot acquire remote grants and persists across pause/resume',
   assert.equal(resumePlaybook(run).taskGoal, 'verified-change');
   assert.equal(nextStep(run).stepId, 'cause');
 });
+
+test('recoverable login obstacle cannot be recorded as an approval blocker', t => {
+  const run = setup(t); const current = nextStep(run);
+  assert.match(current.recoveryInstructions, /approved test-account/);
+  assert.throws(() => recordStep({ run, stepId: current.stepId, generation: current.generation, outcome: 'blocked',
+    reason: 'Need permission to log in', recoveryAction: { kind: 'test-login', inScope: true, environment: 'local', existingTestAccount: true } }), /recoverable local action/);
+  assert.equal(statusPlaybook(run).status, 'active');
+  recordStep(receipt(run));
+  assert.equal(statusPlaybook(run).taskGoal, 'pr');
+});

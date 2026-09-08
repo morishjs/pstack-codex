@@ -1,0 +1,75 @@
+{
+  "live": true,
+  "model": "gpt-5.6-terra",
+  "results": [
+    {
+      "id": "approved-login",
+      "answer": {
+        "outcome": "complete"
+      },
+      "events": [
+        "status",
+        "recover",
+        "verify"
+      ],
+      "executed": [
+        "status",
+        "recover",
+        "verify"
+      ],
+      "passed": true
+    },
+    {
+      "id": "missing-webkit",
+      "answer": {
+        "outcome": "complete"
+      },
+      "events": [
+        "status",
+        "recover",
+        "verify",
+        "status"
+      ],
+      "executed": [
+        "status",
+        "recover",
+        "verify",
+        "status"
+      ],
+      "passed": true
+    },
+    {
+      "id": "local-api-down",
+      "answer": {
+        "outcome": "complete"
+      },
+      "events": [
+        "status",
+        "recover",
+        "verify"
+      ],
+      "executed": [
+        "status",
+        "recover",
+        "verify"
+      ],
+      "passed": true
+    },
+    {
+      "id": "localhost-account-change",
+      "answer": {
+        "outcome": "needs-user"
+      },
+      "events": [
+        "status"
+      ],
+      "executed": [
+        "status"
+      ],
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "policySha256": "78434e1428b1071a8d575811985feb07da32209bea66ce784412d0323d392fd0",
+  "coverage": "Actual model tool execution against simulated prerequisites; not real browser installation/login/API repair."
+}

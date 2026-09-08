@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createMachine, transition } from 'xstate';
 import { getPlaybook } from './playbook-catalog.mjs';
 import { validateIntent } from './task-intent.mjs';
+import { assessRecovery, recoveryInstructions } from './recovery-action.mjs';
 
 const runtime = path.dirname(fileURLToPath(import.meta.url));
 const bundle = path.resolve(runtime, '../poteto');
@@ -22,7 +23,7 @@ function sourceHashes() {
     if (!inside(bundle, file) || hash(file) !== entry.sha256) fail(`bundled source drift: ${entry.target}`);
     sources[file] = entry.sha256;
   }
-  for (const file of [manifestFile, fileURLToPath(import.meta.url), path.join(runtime, 'playbook-catalog.mjs'), path.join(runtime, 'task-intent.mjs'), path.resolve(runtime, '../references/playbook-execution.md')]) sources[file] = hash(file);
+  for (const file of [manifestFile, fileURLToPath(import.meta.url), path.join(runtime, 'playbook-catalog.mjs'), path.join(runtime, 'task-intent.mjs'), path.join(runtime, 'recovery-action.mjs'), path.resolve(runtime, '../references/playbook-execution.md')]) sources[file] = hash(file);
   return sources;
 }
 function authorities(step) { return array(step.authority).filter(a => a !== 'read-only'); }
@@ -187,6 +188,7 @@ export function nextStep(run) {
       source: path.resolve(runtime, '..', manifest.source), sourceRoot: bundle, runtime, runtimeGuide: path.join(bundle, 'runtime.md'), executionPolicy: path.resolve(runtime, '../references/playbook-execution.md'), requestFile: path.join(run, 'request.md'),
       evidence: step.evidence, assertions: step.assertions, role: step.role, authority: step.authority, when: step.when,
       retries: array(manifest.loops).filter(edge => edge.from === step.id),
+      recoveryInstructions,
       taskRequirements: state.taskIntent?.goal === 'pr' ? 'Retain the task through implementation, verification, PR publication and passed CI. Do not skip required delivery. For opening-a-pr/ci supply ci-status JSON {status:"passed",headSha:<40-char SHA>,prUrl:<https URL>} from actual current-head checks. Pending or failed CI is unfinished; repair within scope and reverify before recording.' : undefined,
       modelPolicy: { planning: 'gpt-6-astra', implementation: 'gpt-5.6-terra', review: 'gpt-5.6-sol', reasoning: 'medium', reviewSession: 'fresh' },
       requiredChildren: invocations(step).map(playbook => {
@@ -195,7 +197,7 @@ export function nextStep(run) {
       }) };
   });
 }
-export function recordStep({ run, stepId, generation, outcome, reason, evidence = [], data }) {
+export function recordStep({ run, stepId, generation, outcome, reason, evidence = [], data, recoveryAction }) {
   return locked(run, run => {
     const { state, manifest } = load(run);
     if (['paused', 'complete'].includes(state.status) || stepId !== state.stepId) fail('step is not active');
@@ -204,6 +206,7 @@ export function recordStep({ run, stepId, generation, outcome, reason, evidence 
     if (!['passed', 'not-applicable', 'blocked'].includes(outcome)) fail('invalid outcome');
     if (state.status === 'blocked' && !(outcome === 'not-applicable' && step.when && !authorized(state, step))) fail('resume blocked step before recording');
     if (outcome === 'blocked' && !reason?.trim()) fail('blocked outcome needs reason');
+    if (outcome === 'blocked' && recoveryAction && assessRecovery(state, recoveryAction).decision === 'continue') fail('recoverable local action: execute recovery and verification instead of requesting approval or recording a blocker');
     const receipt = { stepId, generation, outcome, reason, data, activatedAt: state.activatedAt, evidence: validateEvidence(state, evidence), at: Date.now() };
     if (outcome !== 'blocked') {
       if (!receiptAllowed(state, step, receipt)) fail('receipt lacks required evidence, authority, or conditional scope');
