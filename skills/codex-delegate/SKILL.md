@@ -48,4 +48,4 @@ Existing code runs remain resumable with their saved status/wait/resume commands
 
 See [intent evaluation](references/intent-evaluation.md) for deterministic completion tests and the separate live model regression suite.
 
-See [local recovery](references/local-recovery.md) for action inputs, authorization boundaries, and executable continuation scenarios.
+See [local recovery](references/local-recovery.md) for action inputs, authorization boundaries, and the actual local browser integration command. For authenticated UI work, require real login, an authenticated API response, and the requested UI interaction before completion. Simulated recovery tools or model classification scores cannot satisfy that runtime requirement.

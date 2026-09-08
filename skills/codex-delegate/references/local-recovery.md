@@ -16,14 +16,22 @@ Account/password changes, remote data writes, deletion, and unknown effects do n
 
 When a blocker receipt is based on this check, include the checked object as `recoveryAction`. The controller rejects marking an authorized local recovery as blocked. This does not prevent a host assistant from ending its turn without submitting a receipt; the skill's continuation instructions and behavior evaluations cover that failure separately.
 
-## Checks
+## Actual runtime verification
 
-`npm test` covers local continuation, protected effects, out-of-scope work, missing grants, and false blocker rejection. The behavior grader rejects permission-only responses and claims of completion without recovery and verification events.
+Keep the small deterministic policy tests in `npm test`: existing authority, protected effects, explicit pause, and false blocker rejection. The simulated recovery-tool grader and its four-case AI harness were removed. They did not prove real login or application recovery.
+
+The opt-in Mevops integration command uses the project's Playwright package and installed Chrome. It has no route mocks, auth bypass, synthetic event log, or fixture data creation:
 
 ```sh
-node recovery-eval.mjs --live --out /absolute/new-directory
+# Supply existing test credentials through MEVOPS_TEST_EMAIL and MEVOPS_TEST_PASSWORD.
+node recovery-eval.mjs --live \
+  --workspace /absolute/mevops \
+  --base-url http://localhost:PORT \
+  --date YYYY-MM-DD --out /absolute/new-evidence-directory
 ```
 
-This runs real Terra medium agents against four isolated scenarios using executable simulated workspace tools: existing test login, missing WebKit, local API recovery, and a protected account change behind a localhost UI. It records tool output, final answers, and action traces. No real account login, browser download, or API repair happens during this evaluation; those integrations still need native runtime verification. Ordinary CI runs the deterministic tests without AI calls.
+Start/recover the actual local API and web first using the project dev-server skill. Verify their real listeners and backing environment. Use a date with existing local reservations. The test logs in, requires a successful authenticated staff API response and app navigation, then compares right/bottom edge clicks against the same card's center-click detail panel. Arrival status can legitimately open either reservation information or admission status. It measures the outer card bounds, so the old excluded strip cannot pass by clicking inside the smaller hit area.
 
-The [2026-09-08 result](recovery-evaluation-result.json) passed 4/4 fixed scenarios. The grader checks successful command-execution events as well as helper state, so a final completion claim alone cannot pass. An earlier run recovered successfully after misusing the fixture command syntax but failed the strict action sequence; the final adapter clarifies its command interface. This is a small regression suite, not unseen-case or native-integration proof.
+The test saves a JSON report and local screenshots. Do not publish screenshots containing patient information. It intentionally fails when the environment, credentials, data or UI behavior cannot be verified. CI keeps the deterministic tests; this integration run requires real local prerequisites and is opt-in.
+
+[Recorded actual result](recovery-evaluation-result.json): real Chrome login succeeded, the original right-edge behavior failed, and the corrected right and bottom edges passed on the same local application and existing data. Three local API TypeScript errors were repaired first; existing focused API tests passed. This is actual integration evidence driven by the host assistant and Playwright, not a claim that a separate Terra agent independently repaired an application.
