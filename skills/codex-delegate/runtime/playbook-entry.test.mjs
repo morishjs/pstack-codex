@@ -18,6 +18,7 @@ const json = (...args) => {
 test('skill starts in the current turn without a same-thread model handoff', () => {
   const skill = fs.readFileSync(new URL('../SKILL.md', import.meta.url), 'utf8');
   assert.match(skill, /Start work in the current turn/);
+  assert.match(skill, /prefer \*\*gpt-5\.6-terra \/ medium\*\* for the main coordinator/);
   assert.doesNotMatch(skill, /send_message_to_thread|sol-main-handoff|after the tool accepts the continuation, yield/);
 });
 

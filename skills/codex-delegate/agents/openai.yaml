@@ -1,7 +1,7 @@
 interface:
   display_name: "Codex Delegate"
   short_description: "Execute complete Poteto playbooks through XState evidence gates"
-  default_prompt: "Use $codex-delegate in the current turn without a model-handoff pause. Intake the original request, freeze its goal, and drive next/action/record through completion. Prefer Sol medium only when the caller can select the main model before task creation; otherwise retain the current main and use explicit role models. Preserve restrictions and existing runs; use real host tools and fresh Sol final review."
+  default_prompt: "Use $codex-delegate in the current turn without a model-handoff pause. Intake the original request, freeze its goal, and drive next/action/record through completion. Prefer Terra medium only when the caller can select the main model before task creation; otherwise retain the current main and use explicit role models. Preserve restrictions and existing runs; use real host tools and fresh Sol final review."
 
 policy:
   allow_implicit_invocation: true
