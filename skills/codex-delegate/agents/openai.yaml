@@ -1,7 +1,7 @@
 interface:
   display_name: "Codex Delegate"
   short_description: "Execute complete Poteto playbooks through XState evidence gates"
-  default_prompt: "Use $codex-delegate now with one retained worker and reviewer. Skip grilling for clear work; unresolved technical decisions use agent-to-agent dependency rounds, while product/authority/irreversible choices require actual user decisions. Map agreed decisions to implementation locations and verification before coding. Re-review design omissions and change regressions; defer unrelated existing issues/improvements and decide scope before fixing a new blocking dependency. Preserve playbook gates, prior evidence and existing authority."
+  default_prompt: "Use $codex-delegate now with one retained main worker; create and reuse one Sol reviewer only when independent review is required. The main investigates, designs and implements. Cursor ACP executes browser verification. Skip grilling for clear work; unresolved technical decisions use agent-to-agent dependency rounds, while product/authority/irreversible choices require actual user decisions. Map agreed decisions to implementation locations and verification before coding. Re-review design omissions and change regressions; defer unrelated existing issues/improvements and decide scope before fixing a new blocking dependency. Preserve playbook gates, prior evidence and existing authority."
 
 policy:
   allow_implicit_invocation: true

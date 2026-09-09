@@ -30,9 +30,19 @@ Native tools and OS permissions remain the actual access boundary. The controlle
 
 ## Models and retained context
 
-The user requested retained ownership rather than new agents at phase transitions. The current main normally owns investigation, design, acceptance, implementation, verification and repair; prefer Terra medium when selectable at creation. Start one independent Sol medium reviewer at the first review and resume that reviewer with findings, fixes and current diff thereafter. Astra planning specialists and additional panel/parallel participants require a source clause or concrete need recorded with evidence. They supplement the worker rather than replace it. Prototype and read-only investigation keep their source exceptions. See [retained team protocol](retained-team.md) for the executable ledger and completion gate.
+The user's retained-team policy takes precedence over actor/model instructions in the bundled source and every linked skill. Preserve procedures and substantive evidence, but adapt who performs them:
 
-If the selected source requires an independent panel, live verification, a specific contrast, or a pilot, preserve that requirement. Respect live host concurrency limits. Record any user-directed adaptation explicitly; do not silently claim a smaller panel or helper-only test is equivalent. Do not add automatic Astra escalation merely because an infrastructure error repeats.
+| Source instruction | Effective action for ordinary tasks |
+| --- | --- |
+| how/why investigator, architect arena, design candidates | Main worker investigates and compares alternatives; no new agents |
+| delegate implementation, fresh owner per artifact | Main worker implements, repairs and retains context |
+| independent review or design challenge | One Sol medium reviewer, reused for later reviews; create only when independent review is needed |
+| browser verification | Cursor ACP executes the scenarios; main worker accepts evidence |
+| change main model before PR, hand off and end turn | Current main continues authorized delivery in the same turn |
+
+A phase, source clause or perceived complexity alone does not authorize another participant. The ordinary feature design gate requires alternatives and a decision, not a panel or a fabricated panel-skip receipt. Clear requests use the existing conditional grilling bypass. The worker's implementation diff check is not independent approval; final approval still requires the retained Sol reviewer.
+
+Explicit eval, autopilot and standing-program workflows preserve their distinct candidate/owner panels and registration requirements. They are not implicit children to create for routine design or implementation. Child playbooks retain the root team's policy. See [retained team protocol](retained-team.md).
 
 ## Finish and monitor
 
@@ -40,4 +50,4 @@ The parent assistant follows its current controller to completion, a requested p
 
 An autopilot-full pause immediately stops parent advancement and returns `holdRequired`. Immediately send zero-writes hold to every owner with the host's agent controls. Supply actual owner acknowledgments using `pause --run ABS --receipt-file ABS` with `evidence: [{kind: "hold-acknowledgments", path: ABS}]`. Resume is rejected until acknowledgments are recorded. A later hold requires fresh acknowledgments; pausing the controller alone does not stop external processes.
 
-The explicit source adaptations are: model choices follow the user's policy; the worker retains all phases, the reviewer remains independent of the worker and is reused across revisions, and required panels/parallel roles are recorded as exceptions. A new phase is not a new agent. Preserve every original step and evidence gate. Privileged actions remain bounded by user authority. Original source files stay byte-identical for comparison.
+The explicit source adaptations are: model choices follow the user's policy; the worker retains all phases, the reviewer remains independent of the worker and is reused across revisions, and only explicitly requested eval/program panels are recorded as exceptions. A new phase is not a new agent. Preserve every original step and evidence gate. Privileged actions remain bounded by user authority. Original source files stay byte-identical for comparison.

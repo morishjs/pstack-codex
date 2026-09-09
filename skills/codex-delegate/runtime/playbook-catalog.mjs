@@ -107,11 +107,11 @@ export const PLAYBOOKS = {
   ]),
   feature: book('Feature', 'Implement new behavior with explicit design and separated review.', [
     step('understand', 1, 'Run how over the affected subsystem.', 'subsystem-map'),
-    step('design', 2, 'Run architect for parallel design exploration or record architect skipped with a concrete reason; never silently fold design into code.', 'design-alternatives|design-decision'),
+    step('design', 2, 'The retained worker compares design alternatives and records the decision. A clear established path needs a reason, not an arena or new design agents. Preserve design before code.', 'design-alternatives|design-decision'),
     step('throughput', 3, 'Record all four checkpoint items: blocking first steps, independent workstreams, shared mutable state, smallest safe decomposition. Keep n/a reasons. Shared-state splitting is default; serialize real invariants.', 'throughput-checkpoint'),
-    step('implement', 4, 'Delegate scoped code writing with paths, domain shape and success criteria; arena when valid shapes compete. Review separately; constrained no-spawn delegates own the diff directly. Re-ground upstream files, migrate shared consumers and verify each; no delegation skip merely for small size.', 'owner-brief|reviewed-diff|consumer-inventory', L),
+    step('implement', 4, 'The retained worker writes the scoped code and checks its diff against paths, domain shape and acceptance criteria. Re-ground upstream files, migrate shared consumers and verify each. Keep independent Sol review separate; do not create an implementation agent.', 'owner-brief|reviewed-diff|consumer-inventory', L),
     step('verify', 5, 'Verify on the matching real surface; inconclusive or wrong-surface never passes.', 'runtime-proof', L),
-    step('commits', 6, 'Build, verify and commit each small unit before the next; rebase into ordered commits, stack follow-ups. Recompute checkpoint at phases and use fresh owners for independent artifacts.', 'ordered-commits|unit-verification', L, conditional('Commits are within the authorized delivery boundary.')),
+    step('commits', 6, 'The retained worker builds, verifies and commits each small unit before the next; rebase into ordered commits and recompute the checkpoint without changing owners.', 'ordered-commits|unit-verification', L, conditional('Commits are within the authorized delivery boundary.')),
     step('interrogate', 7, 'Run interrogate before shipping a contested design.', 'design-review', R, conditional('The design is contested.')),
     pr(8), reply('Report what was built, choices and reasons, open decisions, and a table of design alternatives.'),
   ], [loop('verify', 'implement', 'A matching-surface check fails; repair and verify the revised diff.')]),
@@ -367,7 +367,6 @@ for (const [id, [implement, design, acceptance, verify]] of Object.entries(repai
   PLAYBOOKS[id].repairStages = { implement, design, acceptance, verify };
 }
 for (const [id, stepId, minimum, optional, includeReviewer] of [
-  ['feature', 'design', 2, true, false],
   ['eval', 'candidates', 2, false, false], ['eval', 'judge', 1, false, true],
   ['autopilot-full', 'swarm', 2, false, true], ['autopilot-stack', 'swarm', 2, false, true],
 ]) {

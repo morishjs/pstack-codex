@@ -206,10 +206,14 @@ function cycleRoot(state) {
   return current;
 }
 export function updateTeam({ run, operation, evidence = [] }) {
-  const root = cycleRoot(load(run).state);
+  const active = load(run).state;
+  const root = cycleRoot(active);
   return locked(root.run, rootRun => {
     const { state } = load(rootRun);
     if (['complete', 'paused'].includes(state.status)) fail('team cannot change in a completed or paused task');
+    if (operation.type === 'assign' && operation.role === 'specialist' && ![state.playbook, active.playbook].some(id => ['eval', 'autopilot-full', 'autopilot-stack', 'orchestrate'].includes(id))) {
+      fail('ordinary tasks retain the main worker; source delegation clauses do not authorize extra specialists');
+    }
     state.reviewCycle ??= newReviewCycle();
     const proof = validateEvidence(state, evidence);
     updateReviewCycle(state.reviewCycle, state.workspace, operation, proof);
@@ -229,7 +233,7 @@ export function nextStep(run) {
     }
     if (state.status === 'blocked') return statusPlaybook(run);
     return { ...statusPlaybook(run), instruction: step.instruction, sourceSteps: step.sourceSteps,
-      execution: { mode: 'retained-worker-and-reviewer', instruction: 'Keep one worker through investigation, design, acceptance, implementation and verification. Reuse one independent reviewer for revisions. A child playbook is a workflow, not a request to spawn another agent. Register extra source-required panel/parallel participants with clause, reason and evidence. Formatting/environment repairs do not revise acceptance. Native tools perform work; team commands only record identities and evidence.' },
+      execution: { mode: 'retained-worker-and-reviewer', sourceDelegation: 'overridden-by-execution-policy', browserProvider: 'cursor-acp', instruction: 'This execution policy overrides bundled source and linked-skill actor/model instructions. The main worker performs investigation, design alternatives, acceptance, implementation and repairs. Only when independent review is required, create one Sol reviewer and reuse it; read-only explanation and ordinary preparation do not create a reviewer. Cursor executes browser verification. A source arena, delegate, owner or phase is not permission to create another agent. Only explicit eval/program workflows retain their registered panels. Continue in the current turn through authorized delivery; never hand off merely to change the main model.' },
       reviewContext: reviewContext(cycleRoot(state).reviewCycle ?? newReviewCycle(), state.workspace),
       source: path.resolve(runtime, '..', manifest.source), sourceRoot: bundle, runtime, runtimeGuide: path.join(bundle, 'runtime.md'), executionPolicy: path.resolve(runtime, '../references/playbook-execution.md'), requestFile: path.join(run, 'request.md'),
       evidence: step.evidence, assertions: step.assertions, role: step.role, authority: step.authority, when: step.when, panelRequirement: step.panelRequirement,

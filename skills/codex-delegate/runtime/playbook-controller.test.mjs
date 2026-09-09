@@ -79,6 +79,24 @@ test('every playbook declares valid XState destinations for all repair classes',
   }
 });
 
+test('ordinary feature keeps the main worker through design and implementation without a panel', t => {
+  const run = fixture(t, 'feature');
+  pass(run);
+  let current = nextStep(run);
+  assert.equal(current.stepId, 'design');
+  assert.equal(current.panelRequirement, undefined);
+  assert.equal(current.execution.sourceDelegation, 'overridden-by-execution-policy');
+  assert.equal(current.execution.browserProvider, 'cursor-acp');
+  assert.throws(() => updateTeam({ run, operation: { type: 'assign', role: 'specialist', agentId: 'design-agent', sourceClause: 'feature/design', reason: 'Original architect says arena' } }), /retain the main worker/);
+  pass(run);
+  pass(run);
+  current = nextStep(run);
+  assert.equal(current.stepId, 'implement');
+  assert.equal(current.reviewContext.worker, 'fixture-worker');
+  assert.equal(current.reviewContext.participantCount, 1);
+  assert.throws(() => updateTeam({ run, operation: { type: 'assign', role: 'worker', agentId: 'replacement-implementer' } }), /reuse/);
+});
+
 test('source-required panels cannot pass without registered participants', t => {
   const run = fixture(t, 'eval');
   while (nextStep(run).stepId !== 'candidates') pass(run);
