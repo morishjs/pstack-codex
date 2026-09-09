@@ -8,6 +8,8 @@ The `deslop`, `control-cli`, and `control-ui` guides derive from the same reposi
 
 Changes include Codex runtime routing, bundled reference packaging, host-aware model and agent selection, history and scheduler adaptation, permission boundaries, installation and validation tools, plan checker adaptation, and a read-only worktree audit that does not assume Cursor transcript storage.
 
+`skills/codex-delegate/poteto/` preserves the complete tracked Poteto port, including licenses. Only the entry filename changes from `SKILL.md` to `GUIDE.md` to avoid nested skill registration; `poteto-manifest.json` records source paths and byte hashes. The playbook controller and execution policy are separate adaptations.
+
 The [FetchUpstream/pstack-plugin](https://github.com/FetchUpstream/pstack-plugin) repository was inspected for comparison. Its README describes a curated ChatGPT Web subset, not a full Codex execution port. Its files were not used as the source of this package.
 
 Flavio Copes's [A deep dive into pstack](https://flaviocopes.com/pstack/) was consulted as an overview. No article text is bundled. The upstream repository, not the blog, is the authoritative source for this port.

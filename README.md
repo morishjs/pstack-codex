@@ -1,4 +1,44 @@
-# Poteto Mode for Codex
+# Codex Delegate for Codex
+
+The primary skill is `codex-delegate`. All 23 Poteto playbooks have separate XState step graphs, backed by the complete bundled source library. The host performs each action with native tools; the controller gates step order, authority, evidence hashes, linked child completion, and declared assertions.
+
+## Codex Delegate
+
+Prefer Terra medium when creating the main task and the caller can select its model before the first turn. A loaded skill cannot silently replace the current turn's model, so Codex Delegate starts work immediately and never inserts a same-thread model-handoff pause. The main performs investigation, design and implementation. Model selection applies separately to independent review and explicitly requested eval/program participants.
+
+The main worker retains all phases; create one independent Sol reviewer only when independent review is needed, and reuse it. Cursor ACP executes browser verification. All 23 playbook step graphs remain. The shared [review ledger](skills/codex-delegate/references/retained-team.md) links findings to frozen requirements, records fixes, reuses checks whose declared inputs remain unchanged, and gates completion on independent approval. Additional panels are limited to explicitly requested eval/program workflows; source delegation clauses do not create ordinary-task participants. Existing separate-author executor runs remain supported as opt-in legacy execution.
+
+[Design grilling](skills/codex-delegate/references/design-grilling.md) is conditional on unresolved decisions. Clear work proceeds directly; technical questions are resolved by the retained pair in dependency order, and product-policy/authority/irreversible choices use actual user decisions. Accepted decisions map to implementation locations and verification. Re-review fixes agreed omissions and change regressions, while unrelated issues stay in followups; a newly discovered blocking dependency requires a scope disposition and mapped verification.
+
+Install it:
+
+```sh
+python3 install.py --skill codex-delegate
+```
+
+Start new work with `orchestrator.mjs intake --request-file ORIGINAL --out ABS`, then `start --workspace ABS --request-file ORIGINAL --intent-file ABS/intent.json`. Intake freezes the requested outcome before selecting a playbook. The operator-configured bug-report default is fix, verify, PR and passing CI; explicit report-only, plan-only and no-PR restrictions override it. Set `task-policy.json` to `report` or `verified-change` without that standing PR authorization. Resume retains the existing goal and evidence. Drive `next`, perform the actual action, and `record` its evidence. Investigation, prototype, planning, evaluation, monitoring, shipping, and cleanup retain distinct source conditions and completion boundaries. Registered explicit eval/program specialists can use Astra medium; the retained reviewer uses Sol medium. The nine-route executor remains available as `start --code-phase` only for explicit isolation requirements and legacy runs.
+
+`python3 sync_playbooks.py --check` verifies the bundled source against all tracked original files. Deterministic tests validate machine behavior; they do not prove that every playbook has executed real models, browsers, GitHub operations, or production actions.
+
+[Intent evaluation](skills/codex-delegate/references/intent-evaluation.md) separately runs the same production classifier against synthetic request variants. Ordinary CI validates contracts, completion gates, and the dataset without AI calls. `node intent-eval.mjs --live --out ABS --repeat 2` runs actual model calls and fails any wrong or missing outcome; it does not exercise application fixes or remote publication.
+
+UI workflows require a post-implementation PNG/JPEG path and route. Performance workflows require numeric baseline/current metric evidence. The runtime records phase context, frozen contracts, hashes, verification output, and recovery state under the target workspace's ignored `.codex-delegate/` directory.
+
+Run its deterministic suite:
+
+```sh
+cd skills/codex-delegate/runtime
+npm ci --ignore-scripts --no-audit --no-fund
+npm test
+```
+
+See [`skills/codex-delegate/SKILL.md`](skills/codex-delegate/SKILL.md) for invocation and runtime boundaries.
+
+Implementation starts require `--authority local-workspace`, derived from the existing user request. Scope paths are literal files/directories; unsupported glob syntax is rejected before any model call. The coordinator tracks the execution through completion or an unresolved blocker. `wait --run PATH` reports pending timeouts explicitly instead of treating a successful status query as completion.
+
+Independent implementation tasks can use a [dependency queue](skills/codex-delegate/references/dependency-queue.md) with up to two active lanes. Each lane keeps an isolated worktree across retries; successful patches are reused only while their evidence remains valid. The integrated checkout must pass combined checks and a fresh Sol review. Environment failures resume verification or review without restarting investigation; contract revisions preserve prior failure evidence and already-fixed implementation.
+
+## Legacy Poteto Mode
 
 A self-contained Codex port of Lauren Tan's [pstack](https://github.com/cursor/plugins/tree/main/pstack), including **poteto-mode**, all **45 upstream skills**, **23 playbooks**, **21 principles**, both agent prompts, and the original PR watcher and orchestrator tools.
 
@@ -12,7 +52,7 @@ Requires Python 3.9+ for the installer. In a terminal:
 
 ```sh
 git clone https://github.com/morishjs/pstack-codex.git
-python3 pstack-codex/install.py
+python3 pstack-codex/install.py --skill poteto-mode
 ```
 
 The installer copies only `skills/poteto-mode` into `$CODEX_HOME/skills/poteto-mode` (or `~/.codex/skills/poteto-mode`). It refuses to replace an existing directory or symlink, and excludes development dependencies. No global configuration is changed.
@@ -20,7 +60,7 @@ The installer copies only `skills/poteto-mode` into `$CODEX_HOME/skills/poteto-m
 For project-only installation, run from your project directory:
 
 ```sh
-python3 /path/to/pstack-codex/install.py --dest .agents/skills
+python3 /path/to/pstack-codex/install.py --skill poteto-mode --dest .agents/skills
 ```
 
 You can also ask Codex's built-in skill installer:

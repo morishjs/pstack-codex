@@ -6,9 +6,14 @@ from pathlib import Path
 import shutil
 
 
-def install(destination):
-    source = Path(__file__).resolve().parent / 'skills' / 'poteto-mode'
-    target = destination.expanduser().resolve() / 'poteto-mode'
+SKILLS = ('codex-delegate', 'poteto-mode')
+
+
+def install(destination, skill='codex-delegate'):
+    if skill not in SKILLS:
+        raise ValueError(f'Unknown skill: {skill}')
+    source = Path(__file__).resolve().parent / 'skills' / skill
+    target = destination.expanduser().resolve() / skill
     if target.exists() or target.is_symlink():
         raise FileExistsError(f'Installation exists; preserve or remove it explicitly before updating: {target}')
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -19,9 +24,10 @@ def install(destination):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dest', type=Path, default=Path(os.environ.get('CODEX_HOME', str(Path.home()/'.codex')))/'skills', help='Skill parent directory; use .agents/skills for project scope')
+    parser.add_argument('--skill', choices=SKILLS, default='codex-delegate', help='Skill to install')
     args = parser.parse_args()
     try:
-        target = install(args.dest)
+        target = install(args.dest, args.skill)
     except FileExistsError as error:
         parser.exit(1, str(error)+'\n')
-    print(f'Installed {target}\nInvoke $poteto-mode with a task on the next turn. If your host caches discovery, reopen the session.')
+    print(f'Installed {target}\nInvoke ${args.skill} with a task on the next turn. If your host caches discovery, reopen the session.')

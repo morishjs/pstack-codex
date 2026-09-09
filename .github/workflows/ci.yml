@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: skills/codex-delegate/runtime/package-lock.json
+      - name: Verify packaged skills
+        run: python3 test_port.py
+      - name: Install Codex Delegate runtime
+        working-directory: skills/codex-delegate/runtime
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Test Codex Delegate runtime
+        working-directory: skills/codex-delegate/runtime
+        run: npm test
+      - name: Validate intent evaluation dataset (no AI calls)
+        working-directory: skills/codex-delegate/runtime
+        run: node intent-eval.mjs

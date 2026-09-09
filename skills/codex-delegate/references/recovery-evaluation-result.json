@@ -1,0 +1,76 @@
+{
+  "live": true,
+  "driver": "Real Chrome and Playwright against local Mevops; no separate Terra invocation",
+  "before": {
+    "live": true,
+    "surface": "real-local-browser",
+    "baseUrl": "http://localhost:4637",
+    "date": "2026-03-06",
+    "checks": [
+      {
+        "name": "real-test-login-and-authenticated-api",
+        "passed": true
+      }
+    ],
+    "passed": false,
+    "expectedDetailHeading": "내원 현황",
+    "lastClick": {
+      "edge": "right",
+      "box": {
+        "x": 344.109375,
+        "y": 587.84375,
+        "width": 60,
+        "height": 68.5625
+      }
+    },
+    "error": "expect(locator).toBeVisible() failed\n\nLocator: getByRole('heading', { name: '내원 현황', exact: true })\nExpected: visible\nTimeout: 10000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"to.be.visible\" with timeout 10000ms\n  - waiting for getByRole('heading', { name: '내원 현황', exact: true })\n",
+    "failedRequests": [
+      {
+        "url": "http://localhost:4637/v2/settings/display-preferences/current",
+        "status": 401
+      }
+    ],
+    "visibleHeadings": [
+      "할일",
+      "고객 검색"
+    ]
+  },
+  "after": {
+    "live": true,
+    "surface": "real-local-browser",
+    "baseUrl": "http://localhost:4637",
+    "date": "2026-03-06",
+    "checks": [
+      {
+        "name": "real-test-login-and-authenticated-api",
+        "passed": true
+      },
+      {
+        "name": "right-edge-single-click-opens-dialog",
+        "passed": true
+      },
+      {
+        "name": "bottom-edge-single-click-opens-dialog",
+        "passed": true
+      }
+    ],
+    "passed": true,
+    "expectedDetailHeading": "내원 현황",
+    "lastClick": {
+      "edge": "bottom",
+      "box": {
+        "x": 344.109375,
+        "y": 587.84375,
+        "width": 60,
+        "height": 68.5625
+      }
+    }
+  },
+  "environmentRecovery": {
+    "localApiTypeErrorsFixed": 3,
+    "focusedApiTestsPassed": 23,
+    "apiPort": 5658,
+    "webPort": 4637
+  },
+  "businessDataMutationsRequested": false
+}

@@ -1,0 +1,675 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "source": "skills/poteto-mode/LICENSE",
+      "target": "poteto/LICENSE",
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e"
+    },
+    {
+      "source": "skills/poteto-mode/LICENSE.cursor-team-kit",
+      "target": "poteto/LICENSE.cursor-team-kit",
+      "sha256": "702f5f331b56aff0e33d8c7826df5202559f894145eb70355c6477b55b5bb8a0"
+    },
+    {
+      "source": "skills/poteto-mode/SKILL.md",
+      "target": "poteto/GUIDE.md",
+      "sha256": "58fcf298f570a006f07996a6cc88a535cee01cce71330c380680f09206934391"
+    },
+    {
+      "source": "skills/poteto-mode/agents/openai.yaml",
+      "target": "poteto/agents/openai.yaml",
+      "sha256": "1e53cb261b126a99b665e64f899831d171a14f289161245d5b13960ea7c27b9e"
+    },
+    {
+      "source": "skills/poteto-mode/library/architect/GUIDE.md",
+      "target": "poteto/library/architect/GUIDE.md",
+      "sha256": "24aeba74dd7f9ec685a296da0824bdfab73a11eb87f8500f5dcd2af3dcdd7491"
+    },
+    {
+      "source": "skills/poteto-mode/library/architect/references/design-red-flags.md",
+      "target": "poteto/library/architect/references/design-red-flags.md",
+      "sha256": "905066f9bbac81c573c2b325be47751d2c0f9325e0a0772bd4384e82dafe9336"
+    },
+    {
+      "source": "skills/poteto-mode/library/architect/references/rationale-template.md",
+      "target": "poteto/library/architect/references/rationale-template.md",
+      "sha256": "561b07f1841a5d92bf77a38651185a79414fc6fa14314b506c99cadd5c584a6a"
+    },
+    {
+      "source": "skills/poteto-mode/library/architect/references/runner-prompt.md",
+      "target": "poteto/library/architect/references/runner-prompt.md",
+      "sha256": "3ef8c1452a0382a15b7601c7c94f2a16a00954170d705b7af8cc49ac78080ec9"
+    },
+    {
+      "source": "skills/poteto-mode/library/arena/GUIDE.md",
+      "target": "poteto/library/arena/GUIDE.md",
+      "sha256": "50c7c263b7ed8cf0d4af104c26aff18b486a26bfa18a15998fb93d229403bd05"
+    },
+    {
+      "source": "skills/poteto-mode/library/automate-me/GUIDE.md",
+      "target": "poteto/library/automate-me/GUIDE.md",
+      "sha256": "2cf5f8640e1822cca8b607100b50ddd06501c60a3786ccc4e078c1ed927201b3"
+    },
+    {
+      "source": "skills/poteto-mode/library/blast-radius/GUIDE.md",
+      "target": "poteto/library/blast-radius/GUIDE.md",
+      "sha256": "00464891e7f004cb40cb5d4b0d3b76d8a296e8df21c675a962a8deef738a7b11"
+    },
+    {
+      "source": "skills/poteto-mode/library/bro/GUIDE.md",
+      "target": "poteto/library/bro/GUIDE.md",
+      "sha256": "8b822d47b9299627f5e4fe42684a031105792c8531443da1ae3423adfa2de96f"
+    },
+    {
+      "source": "skills/poteto-mode/library/control-cli/GUIDE.md",
+      "target": "poteto/library/control-cli/GUIDE.md",
+      "sha256": "588b23348d691ee9cd852c33db1cc73e132009d8cb91453c5c0b9edc86700574"
+    },
+    {
+      "source": "skills/poteto-mode/library/control-ui/GUIDE.md",
+      "target": "poteto/library/control-ui/GUIDE.md",
+      "sha256": "3d791a5fc6b325658df33b82e1ddff773b65d55271ab55cc2dccc32eefb08b79"
+    },
+    {
+      "source": "skills/poteto-mode/library/create-skill/GUIDE.md",
+      "target": "poteto/library/create-skill/GUIDE.md",
+      "sha256": "f4a7e8de8fcf37c2fcc9b07179991dadc244af7013a736a0de07eb3f1adfa750"
+    },
+    {
+      "source": "skills/poteto-mode/library/create-verification-skill/GUIDE.md",
+      "target": "poteto/library/create-verification-skill/GUIDE.md",
+      "sha256": "f219e9bcb14e36faa548cfe937725a65eecf094aa7a84f41a849811eff1abef2"
+    },
+    {
+      "source": "skills/poteto-mode/library/create-verification-skill/references/feature-map-example/README.md",
+      "target": "poteto/library/create-verification-skill/references/feature-map-example/README.md",
+      "sha256": "cb7bd782cf89968a4ba3d58a5151db837430db92d19a6f52a906973b77b516ba"
+    },
+    {
+      "source": "skills/poteto-mode/library/create-verification-skill/references/feature-map-example/create-note.md",
+      "target": "poteto/library/create-verification-skill/references/feature-map-example/create-note.md",
+      "sha256": "644a44c74f35d38c2feb7cd05a0121fdebbb623e8dc376c185b565a581d1ccf7"
+    },
+    {
+      "source": "skills/poteto-mode/library/create-verification-skill/references/feature-map-example/search.md",
+      "target": "poteto/library/create-verification-skill/references/feature-map-example/search.md",
+      "sha256": "6e87b9e7f2791a7776ba1bb83f371cd285c306c67f19d245cc4dd6ca3015c823"
+    },
+    {
+      "source": "skills/poteto-mode/library/deslop/GUIDE.md",
+      "target": "poteto/library/deslop/GUIDE.md",
+      "sha256": "8e987c28d4864fa2a47f568ebef5974c2e1907a4bb8b091a14074c0d4a8782ab"
+    },
+    {
+      "source": "skills/poteto-mode/library/figure-it-out/GUIDE.md",
+      "target": "poteto/library/figure-it-out/GUIDE.md",
+      "sha256": "9ee9724fa11c1ca18f43383c5863cdec6f72d9a753f4bf428c676550cbc134a9"
+    },
+    {
+      "source": "skills/poteto-mode/library/how/GUIDE.md",
+      "target": "poteto/library/how/GUIDE.md",
+      "sha256": "e84cc1d009dcc828a54abd2f67951f8e4a9d287397687d2dacfd207ba561af5d"
+    },
+    {
+      "source": "skills/poteto-mode/library/how/references/critic-prompt.md",
+      "target": "poteto/library/how/references/critic-prompt.md",
+      "sha256": "aa77a15590814c814bd5cb074842029ab7b790c2e8379050525bdbc20739d1bb"
+    },
+    {
+      "source": "skills/poteto-mode/library/how/references/critique-rubric.md",
+      "target": "poteto/library/how/references/critique-rubric.md",
+      "sha256": "5774ff2caf51796e54c4a61b63620a165de5801f23c8f47406e527abfbe9addc"
+    },
+    {
+      "source": "skills/poteto-mode/library/how/references/explainer-prompt.md",
+      "target": "poteto/library/how/references/explainer-prompt.md",
+      "sha256": "04336086e7c415394459ca2f461717d920e15339517dbf5a56ca042f8b4fead3"
+    },
+    {
+      "source": "skills/poteto-mode/library/how/references/explorer-prompt.md",
+      "target": "poteto/library/how/references/explorer-prompt.md",
+      "sha256": "fd1218b8cf1f467c644d4ce6fa5e54e6089ede65a28fbbae61f6ee7a2d462f85"
+    },
+    {
+      "source": "skills/poteto-mode/library/index.md",
+      "target": "poteto/library/index.md",
+      "sha256": "89ce3d2f84c06fa35f7d19c85330e4c3da4d897c2f4bce27c076f02897690afc"
+    },
+    {
+      "source": "skills/poteto-mode/library/interrogate/GUIDE.md",
+      "target": "poteto/library/interrogate/GUIDE.md",
+      "sha256": "d9cd3d1f7067504b753166f19767da58670dec87e648bbac70ca6894929a1f84"
+    },
+    {
+      "source": "skills/poteto-mode/library/interrogate/references/code-quality-review.md",
+      "target": "poteto/library/interrogate/references/code-quality-review.md",
+      "sha256": "2462f1347b99b412b04fcb0577b96d8744c801f792f2651746f9409fd4465dc9"
+    },
+    {
+      "source": "skills/poteto-mode/library/interrogate/references/lead-judgment.md",
+      "target": "poteto/library/interrogate/references/lead-judgment.md",
+      "sha256": "d2cea6cc308758201c6b8b82baf780947645f1ab752707ddf97fab374bf473f9"
+    },
+    {
+      "source": "skills/poteto-mode/library/interrogate/references/reviewer-prompt.md",
+      "target": "poteto/library/interrogate/references/reviewer-prompt.md",
+      "sha256": "a397cc61102add709803d917fb23d726920525bf23e7c06dc4ed0b5cbeb00e54"
+    },
+    {
+      "source": "skills/poteto-mode/library/interrogate/references/rubric.md",
+      "target": "poteto/library/interrogate/references/rubric.md",
+      "sha256": "a67bf02426f88714634ff481d667db821d4b2cea7b335bcd165fe3126e427fb5"
+    },
+    {
+      "source": "skills/poteto-mode/library/maintain-verification-skill/GUIDE.md",
+      "target": "poteto/library/maintain-verification-skill/GUIDE.md",
+      "sha256": "7bdc12dca7befb04782b020f055dc15687487c9b6d35cf8d9a6c86cee220d8bd"
+    },
+    {
+      "source": "skills/poteto-mode/library/make-bot-ui/GUIDE.md",
+      "target": "poteto/library/make-bot-ui/GUIDE.md",
+      "sha256": "23b91bb61b196bab1ef136c0362cc1881f562bea37004d3cedb8cf7a1a4f5b32"
+    },
+    {
+      "source": "skills/poteto-mode/library/no-comments/GUIDE.md",
+      "target": "poteto/library/no-comments/GUIDE.md",
+      "sha256": "924cf29beef28a060c331b156087e41e675fc6d141487242e46d4dde17d65a76"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-boundary-discipline/GUIDE.md",
+      "target": "poteto/library/principle-boundary-discipline/GUIDE.md",
+      "sha256": "3fee7ce89a74a9911e769e38b39f4505887b06842c36902e7a1733a4e5a07576"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-build-the-lever/GUIDE.md",
+      "target": "poteto/library/principle-build-the-lever/GUIDE.md",
+      "sha256": "a62fbf394a29b7a42ef4a03bf51009a6615f72e776b379642fdf73b65fc7916f"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-encode-lessons-in-structure/GUIDE.md",
+      "target": "poteto/library/principle-encode-lessons-in-structure/GUIDE.md",
+      "sha256": "9ab0e6d979982260ead6410e51709fba4e37add615871993ff8a4725b5f2af3d"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-exhaust-the-design-space/GUIDE.md",
+      "target": "poteto/library/principle-exhaust-the-design-space/GUIDE.md",
+      "sha256": "67e7e29ab4f484bfddcac55ece4d70f6efc25ccbf91de7de31fcec385f9f059e"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-experience-first/GUIDE.md",
+      "target": "poteto/library/principle-experience-first/GUIDE.md",
+      "sha256": "f8f61e0b0c215988b3199ae4b1f9e16c9443e5580906594feb23d48b12d3dafe"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-fix-root-causes/GUIDE.md",
+      "target": "poteto/library/principle-fix-root-causes/GUIDE.md",
+      "sha256": "1f88767ab08caffa8fda3335cf7cc79ba66412d19cd5c4dc865c95df000b7a1e"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-foundational-thinking/GUIDE.md",
+      "target": "poteto/library/principle-foundational-thinking/GUIDE.md",
+      "sha256": "64aec61f4d1f9f977662b3b90abac09865eaa1f80ee61da85c15adaa8dc84ae0"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-guard-the-context-window/GUIDE.md",
+      "target": "poteto/library/principle-guard-the-context-window/GUIDE.md",
+      "sha256": "17301d7bd38c98b4ea73d9390a4565c5623b06f454a71b568adb64589653f396"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-laziness-protocol/GUIDE.md",
+      "target": "poteto/library/principle-laziness-protocol/GUIDE.md",
+      "sha256": "02cd2c474b9ceec8611ce9bd8861eb4e5129aa324223d8b6b0e1a1d847347585"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-make-operations-idempotent/GUIDE.md",
+      "target": "poteto/library/principle-make-operations-idempotent/GUIDE.md",
+      "sha256": "6ff9aed07af7c3e57c4ef247f1a236b6ffdd1b294732cfedb9845413395d659c"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-migrate-callers-then-delete-legacy-apis/GUIDE.md",
+      "target": "poteto/library/principle-migrate-callers-then-delete-legacy-apis/GUIDE.md",
+      "sha256": "9a91f35639fabff432f1ed8b79c2a4249d53a0a4eb7019c1aa2b8855224f27ea"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-minimize-reader-load/GUIDE.md",
+      "target": "poteto/library/principle-minimize-reader-load/GUIDE.md",
+      "sha256": "425967ae9f67d347ad9817de0aed9eaac6e91dd0f2406bdd0d185605eea47bc4"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-model-the-domain/GUIDE.md",
+      "target": "poteto/library/principle-model-the-domain/GUIDE.md",
+      "sha256": "5c3c1a3db2af1452a742b4c3d50ef34118e0ea2cf90c6042749abe2abc31a0e0"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-never-block-on-the-human/GUIDE.md",
+      "target": "poteto/library/principle-never-block-on-the-human/GUIDE.md",
+      "sha256": "f543460518bfb74d3e7edbfd5348271e5ed7b2db40a8cbd7305d7086a3ef98ce"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-outcome-oriented-execution/GUIDE.md",
+      "target": "poteto/library/principle-outcome-oriented-execution/GUIDE.md",
+      "sha256": "f2fe80adf2da1e1e15aa1d1b465f1cb963acb05114be9032a89ae6ead06df288"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-prove-it-works/GUIDE.md",
+      "target": "poteto/library/principle-prove-it-works/GUIDE.md",
+      "sha256": "124cebf0527fb24bd37be21dbbf4447f9ddce5c058872cfce047e043bbf70bfd"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-redesign-from-first-principles/GUIDE.md",
+      "target": "poteto/library/principle-redesign-from-first-principles/GUIDE.md",
+      "sha256": "bd51e67f78eefa6af7e1d12cd15dba9e55fd9ab96f7942163fe5bacc36b79941"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-separate-before-serializing-shared-state/GUIDE.md",
+      "target": "poteto/library/principle-separate-before-serializing-shared-state/GUIDE.md",
+      "sha256": "d3fc7b258718c845ec880e14a0ef36fab59a6a4c1ccb16d811a2bcb1f46e5489"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-sequence-verifiable-units/GUIDE.md",
+      "target": "poteto/library/principle-sequence-verifiable-units/GUIDE.md",
+      "sha256": "40de5b6d82a408423fffcc9553c73aaf278bd6a1ba24659a4e56174726374bcb"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-subtract-before-you-add/GUIDE.md",
+      "target": "poteto/library/principle-subtract-before-you-add/GUIDE.md",
+      "sha256": "6382fdd1225c9564f3edd6c27aa112a7dae190992673ba3a7f00c58cec284254"
+    },
+    {
+      "source": "skills/poteto-mode/library/principle-type-system-discipline/GUIDE.md",
+      "target": "poteto/library/principle-type-system-discipline/GUIDE.md",
+      "sha256": "f19d9f42bb046dd861863b536b00c7569f2c4d86a06004c02d85e87c239b5778"
+    },
+    {
+      "source": "skills/poteto-mode/library/recall/GUIDE.md",
+      "target": "poteto/library/recall/GUIDE.md",
+      "sha256": "6500fb02df24884d634d01385375a5a92a4e1e840fea220af409f59af121a96b"
+    },
+    {
+      "source": "skills/poteto-mode/library/reflect/GUIDE.md",
+      "target": "poteto/library/reflect/GUIDE.md",
+      "sha256": "afadec74097a0a406587dae7c09c33c8ca0efb98c2f5e981149fd71a1f71ace7"
+    },
+    {
+      "source": "skills/poteto-mode/library/reflect/references/divergent-reviewer.md",
+      "target": "poteto/library/reflect/references/divergent-reviewer.md",
+      "sha256": "02b74c2b168ed6fc2804545d4274dc0d69963abdd3d4b8df97483b730331ad38"
+    },
+    {
+      "source": "skills/poteto-mode/library/reflect/references/judgment-reviewer.md",
+      "target": "poteto/library/reflect/references/judgment-reviewer.md",
+      "sha256": "71e06a5795528a2cad435d6cf28f3710e4d3c233957991508279e064365cd57f"
+    },
+    {
+      "source": "skills/poteto-mode/library/reflect/references/synthesizer.md",
+      "target": "poteto/library/reflect/references/synthesizer.md",
+      "sha256": "52767b4566c37df0adc6350fff1c5c7a919a1178c2be539e0efbf920f2803702"
+    },
+    {
+      "source": "skills/poteto-mode/library/reflect/references/tooling-reviewer.md",
+      "target": "poteto/library/reflect/references/tooling-reviewer.md",
+      "sha256": "d4da1ab4c93fc836fc14cad0c0325654aaa9a606c998915317049714b63faeb8"
+    },
+    {
+      "source": "skills/poteto-mode/library/setup-pstack/GUIDE.md",
+      "target": "poteto/library/setup-pstack/GUIDE.md",
+      "sha256": "167d4a0ed3b4d29e763375b8983ae7e80ba2d2e71d8a0d3d193bef1a8ef04b71"
+    },
+    {
+      "source": "skills/poteto-mode/library/show-me-your-work/GUIDE.md",
+      "target": "poteto/library/show-me-your-work/GUIDE.md",
+      "sha256": "d961bb8bb9a137f0fb50b65df5283f9a4054937e22eac0699afa5fefa45cf445"
+    },
+    {
+      "source": "skills/poteto-mode/library/show-me-your-work/references/decision-log-template.tsv",
+      "target": "poteto/library/show-me-your-work/references/decision-log-template.tsv",
+      "sha256": "6779378006a2f5225e8c06deb84f1d913fb532041ebbb6e50d94600bfe3f4b76"
+    },
+    {
+      "source": "skills/poteto-mode/library/show-me-your-work/scripts/log.sh",
+      "target": "poteto/library/show-me-your-work/scripts/log.sh",
+      "sha256": "1601bc18f9aba0af3f5d6375e4f2d5dc6102334d1bca935026c0e3547cdadbbf"
+    },
+    {
+      "source": "skills/poteto-mode/library/swarm/GUIDE.md",
+      "target": "poteto/library/swarm/GUIDE.md",
+      "sha256": "1a21389f85e2a7f748d3439ce86ad205a216c2515dfe0d98d80576ec3a942b87"
+    },
+    {
+      "source": "skills/poteto-mode/library/tdd/GUIDE.md",
+      "target": "poteto/library/tdd/GUIDE.md",
+      "sha256": "b4df402c414c736b82f0c2552b14db66dca2b00a53a9ea19b764093cb1c0e68a"
+    },
+    {
+      "source": "skills/poteto-mode/library/teach/GUIDE.md",
+      "target": "poteto/library/teach/GUIDE.md",
+      "sha256": "f2081ad4a1d8fc72a79be83fadeed00738581b6659a63671fa96d59819fe7ae3"
+    },
+    {
+      "source": "skills/poteto-mode/library/technical-writing/GUIDE.md",
+      "target": "poteto/library/technical-writing/GUIDE.md",
+      "sha256": "61bf832c187a1eb0ab5c5ff9bcac41b6386d953ff588ea5b304375bd8f7bea66"
+    },
+    {
+      "source": "skills/poteto-mode/library/typescript-best-practices/GUIDE.md",
+      "target": "poteto/library/typescript-best-practices/GUIDE.md",
+      "sha256": "c8739c56ba077cb98832260fc76e99090f2a92a11ff323b8fb9ed3e63a80dc7b"
+    },
+    {
+      "source": "skills/poteto-mode/library/typescript-best-practices/references/patterns.md",
+      "target": "poteto/library/typescript-best-practices/references/patterns.md",
+      "sha256": "eb73b5f3514c0c14d14bafca59ffb54b161422ea5fc5fe65e60c5b4d71c40178"
+    },
+    {
+      "source": "skills/poteto-mode/library/unslop/GUIDE.md",
+      "target": "poteto/library/unslop/GUIDE.md",
+      "sha256": "181883e539caec8258ec9129e3ba5f133409144a2cbf2aa361158ab94cfc3441"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/GUIDE.md",
+      "target": "poteto/library/why/GUIDE.md",
+      "sha256": "8e6f520c87898bd8ee8b0d32a91f58386ed63e14c7706c386adef657e9819c18"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/epistemics.md",
+      "target": "poteto/library/why/references/epistemics.md",
+      "sha256": "ba99dcdc4fbce91a83b50fc0c9b2c5769febd95540b1722c6b87fe8f900bb60a"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/investigator-prompt.md",
+      "target": "poteto/library/why/references/investigator-prompt.md",
+      "sha256": "e35d8eaea13f0a027dd35572d525e9f66e8f8918ca9e555237dc228f26278d5f"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/source-playbook.md",
+      "target": "poteto/library/why/references/source-playbook.md",
+      "sha256": "3cfb0245d5b2019eeeaa7a0e023579d390f2cdcdff6942d2fe009b9efac0eb11"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/sources/code-archaeology.md",
+      "target": "poteto/library/why/references/sources/code-archaeology.md",
+      "sha256": "8c14aa382f0de40829b2668d43e3f54814480bb93a486c9282ada4003f6b9dbd"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/sources/databricks.md",
+      "target": "poteto/library/why/references/sources/databricks.md",
+      "sha256": "269a22032f027ee30a33c1b5e30443d13dd6d127ff20d8d1e8a20715b06a69cc"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/sources/datadog.md",
+      "target": "poteto/library/why/references/sources/datadog.md",
+      "sha256": "db80803f1635a5015e3190f4753c4228083e6cebf222c84e24fc3c3919aa5574"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/sources/incident-postmortem.md",
+      "target": "poteto/library/why/references/sources/incident-postmortem.md",
+      "sha256": "486132457d3782eea64292ce7a2d3bbe3b24b372b20ca00de4329e820f74cd42"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/sources/linear.md",
+      "target": "poteto/library/why/references/sources/linear.md",
+      "sha256": "7e1b72ba459089168efd701502f8c268d2481154aeeda1ddd84f840f7e974760"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/sources/notion.md",
+      "target": "poteto/library/why/references/sources/notion.md",
+      "sha256": "2ce336dd3052967187a56ec33d308c7a69e7ef3b04ba7b17386a8b3914a0f000"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/sources/sentry.md",
+      "target": "poteto/library/why/references/sources/sentry.md",
+      "sha256": "0eef902cb0f835f7fa9bd85a8e19ba1505d05e59a0173dfe852d8d52d828266d"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/sources/slack.md",
+      "target": "poteto/library/why/references/sources/slack.md",
+      "sha256": "60e4c8dbb941f563c86aec7267cde66443b1dc651422569c8d112bc9da7551f6"
+    },
+    {
+      "source": "skills/poteto-mode/library/why/references/synthesizer-prompt.md",
+      "target": "poteto/library/why/references/synthesizer-prompt.md",
+      "sha256": "fcdc69ede22f94da9e22f510bb0c4a75a63820f0b49b8d5fd54a196b4010bf2a"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/authoring-a-skill.md",
+      "target": "poteto/playbooks/authoring-a-skill.md",
+      "sha256": "d91d201e3a83293a39c1ac4c8209f0b6599eef6885af01ffd80c3818bf97a1a0"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/autonomous-run.md",
+      "target": "poteto/playbooks/autonomous-run.md",
+      "sha256": "6f1638c5a02f6df23a9dcd722201249bb9e34a249380e4248da9090d1e1c2bd9"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/autopilot-full.md",
+      "target": "poteto/playbooks/autopilot-full.md",
+      "sha256": "26f7dfbb2894ee214cdb916ad566e6ccf783f8dcc50c0b7b13a612da94d31fea"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/autopilot-stack.md",
+      "target": "poteto/playbooks/autopilot-stack.md",
+      "sha256": "55cf65559e080c1550a05c5be6a189d35955efb5a0fe916cdbc760984271920f"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/babysit.md",
+      "target": "poteto/playbooks/babysit.md",
+      "sha256": "7ef08850022400e53b4117f9a119c765c42e482bee9c1c2ff4b9bfffa8e89930"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/bug-fix.md",
+      "target": "poteto/playbooks/bug-fix.md",
+      "sha256": "542d0c0c5552ce6b365a09521ee7836b07a7141bc2f4af5624583a9be3c067a4"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/eval.md",
+      "target": "poteto/playbooks/eval.md",
+      "sha256": "bf4c9ada381345d5f36b4c43e3eeb66a9e5e87526bb158d24cf888dbbaeff89a"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/feature.md",
+      "target": "poteto/playbooks/feature.md",
+      "sha256": "1e116262d3b7290a6d4c59eb262a5150f12a9fc682caf86ad1ca42df0d599cd0"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/hillclimb.md",
+      "target": "poteto/playbooks/hillclimb.md",
+      "sha256": "0e91d45140275b60ffcbd9670d631967a85a4a2781532fd51d13cfbe07edbf13"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/investigation.md",
+      "target": "poteto/playbooks/investigation.md",
+      "sha256": "bb28bfe2912511dbb777057326a8ccff3ef279d219e52271dcb5b10f68a38b5b"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/multi-phase-plan.md",
+      "target": "poteto/playbooks/multi-phase-plan.md",
+      "sha256": "49517de6b5c8b4eaed6e719d3dd5db1bd69daf58f7318b91e946a518132fe998"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/opening-a-pr.md",
+      "target": "poteto/playbooks/opening-a-pr.md",
+      "sha256": "e7f348d1c6a71c98b01bf3d4945aaf0c5a95ac64f56e8cec64aad1c7b57c9c54"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/orchestrate.md",
+      "target": "poteto/playbooks/orchestrate.md",
+      "sha256": "8982957deed86bfa0ed59a4dc228cf9c978a7744f6737e2ee2e27cb99b3de758"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/pause-safely.md",
+      "target": "poteto/playbooks/pause-safely.md",
+      "sha256": "c0f67db3ab6a957392fb18688689a7043d86bdff8b7c350d8443beb4e2f59649"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/perf-issue.md",
+      "target": "poteto/playbooks/perf-issue.md",
+      "sha256": "9881a23874acbe5d3ceeef2bffc402119d6e6aa05886b62cf1fe9dbc6e030414"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/prototype.md",
+      "target": "poteto/playbooks/prototype.md",
+      "sha256": "0e539b57aa33deb09472e10ccab2a20cd166a86bea94c50e0b8be39e41164d33"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/refactoring.md",
+      "target": "poteto/playbooks/refactoring.md",
+      "sha256": "af8b3ba57cf8cce4ac12c08b838ad48ca7c2879a5137b76b3bc723dcde654c7f"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/runtime-forensics.md",
+      "target": "poteto/playbooks/runtime-forensics.md",
+      "sha256": "96ac9a3a368e6a31d8a7aa56055e6f7f75e8e773c21b65c0f941c26403c8d105"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/session-pickup.md",
+      "target": "poteto/playbooks/session-pickup.md",
+      "sha256": "c10fbfb310cdcd1fa6e5424a42efccc95e08c1e4c417edfcb6076dbc21a5b61b"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/shipping.md",
+      "target": "poteto/playbooks/shipping.md",
+      "sha256": "5544a7180bd7a4107e394b979597405656a1c50f06b678bf349c2978dd091765"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/trace-forensics.md",
+      "target": "poteto/playbooks/trace-forensics.md",
+      "sha256": "fcae1f68f349072a8b2518f09b73dedeb826192d2ec33befb8906f42292e38be"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/visual-parity.md",
+      "target": "poteto/playbooks/visual-parity.md",
+      "sha256": "3297fc4a71464668d0c65745faeeab2592577b47df8288477418f0e742baac38"
+    },
+    {
+      "source": "skills/poteto-mode/playbooks/worktree-cleanup.md",
+      "target": "poteto/playbooks/worktree-cleanup.md",
+      "sha256": "80bc6c50a4f80da37231418366c0cb13bfa57770ff2d38d05dbc1f6e91d5f1da"
+    },
+    {
+      "source": "skills/poteto-mode/references/bugbot-triage.md",
+      "target": "poteto/references/bugbot-triage.md",
+      "sha256": "b2d146c770d8d3593e1ef3d77b668039b8e1f78093ea1a86f1d45d7f99614309"
+    },
+    {
+      "source": "skills/poteto-mode/roles/comment-sicko.md",
+      "target": "poteto/roles/comment-sicko.md",
+      "sha256": "87a56836025eb3b8b012e401429d0dcdcb9e991a6d4b8e7382ed8f36c9969155"
+    },
+    {
+      "source": "skills/poteto-mode/roles/poteto-agent.md",
+      "target": "poteto/roles/poteto-agent.md",
+      "sha256": "f2c49dda539e23c25fd973ea510827605012da6cc28533b66123a613c3361132"
+    },
+    {
+      "source": "skills/poteto-mode/runtime.md",
+      "target": "poteto/runtime.md",
+      "sha256": "bb9bfe2ccc0cbed8f79bbd252f611d3ac53f16b02f8b3700b9ac0c63fc11384f"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/bootstrap.ts",
+      "target": "poteto/scripts/bootstrap.ts",
+      "sha256": "ccd2ed08fd9da9d0d942e5f2491cfc74bb92d8a08fa51755e0da1ac8de287361"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/bun.lock",
+      "target": "poteto/scripts/bun.lock",
+      "sha256": "667d9cf7222e9aae3fa42a4be383e657784216e9df115da02227fbc5ac7bbe46"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/check-plan.mjs",
+      "target": "poteto/scripts/check-plan.mjs",
+      "sha256": "bf202e86bf5a28e19a09a588484e046f0c72f6f855936a6c3824a98b488b59f7"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/orch/orch.test.ts",
+      "target": "poteto/scripts/orch/orch.test.ts",
+      "sha256": "174b86d21ff51ccd28d1a8c938cb2e0c6fa287b209d4ca6c03932fcb1b53372e"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/orch/orch.ts",
+      "target": "poteto/scripts/orch/orch.ts",
+      "sha256": "f091687df627a0b75fabd54af58945a9cd6c7039ef0622012ac9ed60cd8ec434"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/orch/store.ts",
+      "target": "poteto/scripts/orch/store.ts",
+      "sha256": "0eae7cf69282e827b1227166f2e32cee3560f2f3e65b3f1f2faf6fb83d3b4c5b"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/package.json",
+      "target": "poteto/scripts/package.json",
+      "sha256": "d1f815091209d49763775cc188e8e06ff32d5fec648bffd2272bc25a165e87c3"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/cli.test.ts",
+      "target": "poteto/scripts/watch-pr/cli.test.ts",
+      "sha256": "a35592b4c6da96caf8d47987e9cd503fab6c7774ab87d11a43f24b4b5df2a9d1"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/cli.ts",
+      "target": "poteto/scripts/watch-pr/cli.ts",
+      "sha256": "89c08863089181a232be782c4b2ed90a1552f44aeecb0dcb7aac2c623620e680"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/fakes.test-helper.ts",
+      "target": "poteto/scripts/watch-pr/fakes.test-helper.ts",
+      "sha256": "e53e31b7f03068063f53a99a3591b052aaed66e4e2b196b3a364980f60324ab1"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/github.test.ts",
+      "target": "poteto/scripts/watch-pr/github.test.ts",
+      "sha256": "0cbce011050522938523e36bb42a260e92b812dcd2076930fa681672ad316b24"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/github.ts",
+      "target": "poteto/scripts/watch-pr/github.ts",
+      "sha256": "d1bbbafbe8e2c703c84da2029de7f2c4011412512f8cf65a42100f46bcb92c8a"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/policy.test.ts",
+      "target": "poteto/scripts/watch-pr/policy.test.ts",
+      "sha256": "a9fedb25feefd1f57ef6a662f80c99018690170a3a8070773a08eaf694d1d3d9"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/policy.ts",
+      "target": "poteto/scripts/watch-pr/policy.ts",
+      "sha256": "68d240505852cf23c9b2dea463342e9e61243f486b3cc86c735d140f9ee7be49"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/render.ts",
+      "target": "poteto/scripts/watch-pr/render.ts",
+      "sha256": "2b709e86628d5b8fdb61f860e60ababc342b0626c67576305442cf548283a604"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/tsconfig.json",
+      "target": "poteto/scripts/watch-pr/tsconfig.json",
+      "sha256": "1ecccc72320b086c63ce3f73c959896fd747363e63553b3b1136296ea4069e45"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/types.compile.ts",
+      "target": "poteto/scripts/watch-pr/types.compile.ts",
+      "sha256": "621af4c9a664fbf699a9737efccdc248abb416df8819c9dc5f824beae2b9b1d6"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/types.ts",
+      "target": "poteto/scripts/watch-pr/types.ts",
+      "sha256": "64ba6221e3bfe61bbb292337d199cdec6309455477280efb060203dba34e0e91"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/watch-pr/watch-pr",
+      "target": "poteto/scripts/watch-pr/watch-pr",
+      "sha256": "d955603be6cc0e8b8ffcec722f635192b2261410b1f2929abea94480e47eb5d4"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/worktree-audit.py",
+      "target": "poteto/scripts/worktree-audit.py",
+      "sha256": "5c4de7f3c0d9931ab997f8bf8c501c93e2c5ac65e8be5cbec323832f0483c843"
+    },
+    {
+      "source": "skills/poteto-mode/scripts/worktree-audit.sh",
+      "target": "poteto/scripts/worktree-audit.sh",
+      "sha256": "0e670cc4f27181af012cce9a2c2b24ae40b3a23e2e84bf873853603ff11fa5a5"
+    }
+  ]
+}

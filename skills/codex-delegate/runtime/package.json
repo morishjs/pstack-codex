@@ -1,0 +1,11 @@
+{
+  "name": "codex-delegate-runtime",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "xstate": "5.28.0"
+  }
+}
